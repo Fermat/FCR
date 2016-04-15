@@ -1,6 +1,6 @@
 {-#LANGUAGE PackageImports, StandaloneDeriving, DeriveDataTypeable, FlexibleContexts#-}
-module Parser where
-import Syntax
+module Cegt.Parser where
+import Cegt.Syntax
 
 import Text.Parsec hiding (ParseError,Empty, State)
 import qualified Text.Parsec as P

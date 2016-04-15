@@ -1,4 +1,4 @@
-module Syntax where
+module Cegt.Syntax where
 
 -- import Control.Monad.State.Lazy
 -- import Control.Monad.Reader
