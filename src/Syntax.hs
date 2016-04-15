@@ -1,12 +1,12 @@
 module Syntax where
 
-import Control.Monad.State.Lazy
-import Control.Monad.Reader
+-- import Control.Monad.State.Lazy
+-- import Control.Monad.Reader
 
 import Data.Char
 import qualified Data.Set as S
 import Data.List hiding (partition)
-
+import Text.Parsec
 import Text.Parsec.Pos
 
 type Name = String

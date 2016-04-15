@@ -1,6 +1,5 @@
 {-#LANGUAGE PackageImports, StandaloneDeriving, DeriveDataTypeable, FlexibleContexts#-}
 module Parser where
-       
 import Syntax
 
 import Text.Parsec hiding (ParseError,Empty, State)
@@ -20,35 +19,11 @@ import Data.Typeable
 import Data.Char
 import Data.List
 
--- parseModule :: String -> String -> Either P.ParseError Module
--- parseModule srcName cnts =
---   runIndent srcName $
---   runParserT gModule initialParserState srcName cnts
+parseModule :: String -> String -> Either P.ParseError Module
+parseModule srcName cnts =
+  runIdentity $ runParserT gModule () srcName cnts
 
 type Parser a = Parsec String () a
-
-
-binOp :: Assoc -> String -> (a -> a -> a) -> Operator String u Identity a
-binOp assoc op f = Infix (reservedOp op >> return f) assoc
-
-postOp :: String -> (a -> a) -> Operator String u Identity a
-postOp op f = Postfix (reservedOp op >> return f)
-
-preOp :: String -> (a -> a) -> Operator String u Identity a
-preOp op f = Prefix (reservedOp op >> return f)
-
-toOp op "infix" app var = binOp AssocNone op (binApp op app var)
-toOp op "infixr" app var = binOp AssocRight op (binApp op app var)
-toOp op "infixl" app var = binOp AssocLeft op (binApp op app var)
-toOp op "pre" app var = preOp op (preApp op app var)
-toOp op "post" app var = postOp op (postApp op app var) 
-toOp _ fx app var = error (fx ++ " is not a valid operator fixity.")
-
-postApp op app var x = app (var op) x
-
-preApp op app var x = app (var op) x
-
-binApp op app var x y = app (app (var op) x) y
 
 deriving instance Typeable P.ParseError
 instance Exception P.ParseError 
@@ -67,7 +42,6 @@ ruleDecl :: Parser Decl
 ruleDecl = do
   c <- con 
   reservedOp ":"
---  pos <- getPosition
   t <- rule
   return $ Rule c t
   
@@ -97,13 +71,14 @@ con = do
 
 -- parser for FType--
 rule :: Parser Exp
-rule = buildExpressionParser ruleOpTable term
-
+rule = do
+  t1 <- term
+  reserved "~>"
+  t2 <- term
+  return $ Arrow t1 t2
+  
 term :: Parser Exp
-term =  compound 
-
-ruleOpTable :: [[Operator String u Identity Exp]]
-ruleOpTable = [[binOp AssocNone "~>" Arrow]]
+term = compound 
 
 compound = do
   n <- try var <|> con
