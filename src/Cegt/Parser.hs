@@ -8,7 +8,7 @@ import Text.Parsec.Language
 import Text.Parsec.Char
 import Text.Parsec.Expr(Operator(..),Assoc(..),buildExpressionParser)
 import qualified Text.Parsec.Token as Token
-
+import Text.Parsec.Indent
 import Control.Applicative hiding ((<|>),many, optional)
 import Control.Monad.State.Lazy
 import "mtl" Control.Monad.Identity
@@ -21,9 +21,9 @@ import Data.List
 
 parseModule :: String -> String -> Either P.ParseError Module
 parseModule srcName cnts =
-  runIdentity $ runParserT gModule () srcName cnts
+  runIndent srcName $ runParserT gModule () srcName cnts
 
-type Parser a = Parsec String () a
+type Parser a = IndentParser String () a
 
 deriving instance Typeable P.ParseError
 instance Exception P.ParseError 
@@ -48,25 +48,13 @@ ruleDecl = do
 var :: Parser Exp
 var = do
   n <- identifier
-  when (isUpper (head n)) $ parserZero
+  when (isUpper (head n)) $ parserFail "expected to begin with lowercase letter"
   return (Var n)
-
-ensureLower :: Parser String
-ensureLower = do
-  n <- identifier
-  when (isUpper (head n)) $ unexpected "expected to begin with lowercase letter"
-  return n
-
-ensureUpper :: Parser String
-ensureUpper = do
-  n <- identifier
-  when (isLower (head n)) $ unexpected "expected to begin with uppercase letter"
-  return n
 
 con :: Parser Exp
 con = do
   n <- identifier
-  when (isLower (head n)) $ parserZero
+  when (isLower (head n)) $ parserFail "expected to begin with uppercase letter"
   return (Constr n)
 
 -- parser for FType--
@@ -86,8 +74,8 @@ compound = do
   if null as then return n
     else return $ foldl' (\ z x -> App z x) n as 
 
-compoundArgs = 
-  many (try con <|> try var <|> try (parens term))
+compoundArgs =
+  many $ indented >> (try con <|> try var <|> try (parens term))
 
 
 -----------------------Positions -------
@@ -131,48 +119,48 @@ gottlobStyle = Token.LanguageDef
                     ["\\", "->", "|", ".","=", "::", ":", "=>"]
                 }
 
-tokenizer :: Token.GenTokenParser String u Identity
+tokenizer :: Token.GenTokenParser String u (State SourcePos)
 tokenizer = Token.makeTokenParser gottlobStyle
 
-identifier :: ParsecT String u Identity String
+identifier :: ParsecT String u (State SourcePos) String
 identifier = Token.identifier tokenizer
 
-whiteSpace :: ParsecT String u Identity ()
+whiteSpace :: ParsecT String u (State SourcePos) ()
 whiteSpace = Token.whiteSpace tokenizer
 
-reserved :: String -> ParsecT String u Identity ()
+reserved :: String -> ParsecT String u (State SourcePos) ()
 reserved = Token.reserved tokenizer
 
-reservedOp :: String -> ParsecT String u Identity ()
+reservedOp :: String -> ParsecT String u (State SourcePos) ()
 reservedOp = Token.reservedOp tokenizer
 
-operator :: ParsecT String u Identity String
+operator :: ParsecT String u (State SourcePos) String
 operator = Token.operator tokenizer
 
-colon :: ParsecT String u Identity String
+colon :: ParsecT String u (State SourcePos) String
 colon = Token.colon tokenizer
 
-integer :: ParsecT String u Identity Integer
+integer :: ParsecT String u (State SourcePos) Integer
 integer = Token.integer tokenizer
 
-brackets :: ParsecT String u Identity a -> ParsecT String u Identity a
+brackets :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) a
 brackets = Token.brackets tokenizer
 
-parens :: ParsecT String u Identity a -> ParsecT String u Identity a
+parens :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) a
 parens  = Token.parens tokenizer
 
-braces :: ParsecT String u Identity a -> ParsecT String u Identity a
+braces :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) a
 braces = Token.braces tokenizer
 
-dot :: ParsecT String u Identity String
+dot :: ParsecT String u (State SourcePos) String
 dot = Token.dot tokenizer
 
-commaSep1 :: ParsecT String u Identity a -> ParsecT String u Identity [a]
+commaSep1 :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) [a]
 commaSep1 = Token.commaSep1 tokenizer
 
-semiSep1 :: ParsecT String u Identity a -> ParsecT String u Identity [a]
+semiSep1 :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) [a]
 semiSep1 = Token.semiSep1 tokenizer
 
-comma :: ParsecT String u Identity String
+comma :: ParsecT String u (State SourcePos) String
 comma = Token.comma tokenizer
 

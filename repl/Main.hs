@@ -24,6 +24,7 @@ main = flip catches handlers $ do
       case parseModule filename cnts of
              Left e -> throw e
              Right a -> do putStrLn $ "Parsing success! \n"
+                           print $ disp a
     _ -> putStrLn "usage: cegt <filename>"
   where handlers = [Handler parseHandler] -- , Handler typeHandler
 --        typeHandler e@(ErrMsg _) = print (disp e) >> exitFailure
