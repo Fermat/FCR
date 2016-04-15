@@ -15,7 +15,29 @@ import System.Environment
 import System.Exit
 import System.IO(withFile,hGetContents,IOMode(..),hClose,openFile)
 import Data.Map
+import System.Console.Haskeline
 
+
+main :: IO ()
+main = runInputT defaultSettings loop
+  where 
+    loop :: InputT IO ()
+    loop = do
+      minput <- getInputLine "cegt> "
+      case minput of
+        Nothing -> return ()
+        Just "quit" -> return ()
+        Just input -> do -- outputStrLn $ "Input was: " ++ input
+                         
+                         loop
+
+handle a = if a == (":l "++res) then 
+             
+           
+
+
+
+{-
 main = flip catches handlers $ do
   args <- getArgs
   case args of
@@ -32,4 +54,4 @@ main = flip catches handlers $ do
 
 liftEither (Left err) = throw err
 liftEither (Right val) = return val
-
+-}
