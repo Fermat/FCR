@@ -1,4 +1,4 @@
-{-# LANGUAGE  ScopedTypeVariables #-}
+{-# LANGUAGE  ScopedTypeVariables, PatternGuards #-}
 module Main where
 import Cegt.Parser
 import Cegt.Syntax
@@ -9,7 +9,8 @@ import Text.PrettyPrint
 import Text.Parsec(ParseError)
 import System.Console.CmdArgs
 import Data.Typeable
-import Control.Exception
+import Data.List
+import qualified Control.Exception as E
 import Control.Monad.State
 import System.Environment
 import System.Exit
@@ -26,16 +27,27 @@ main = runInputT defaultSettings loop
       minput <- getInputLine "cegt> "
       case minput of
         Nothing -> return ()
-        Just "quit" -> return ()
-        Just input -> do -- outputStrLn $ "Input was: " ++ input
-                         
-                         loop
+        Just ":q" -> return ()
+        Just input | Just rest <- stripPrefix ":e " input -> 
+            do outputStrLn $ "the term was: " ++ rest
+               loop
 
-handle a = if a == (":l "++res) then 
-             
-           
+                   | Just filename <- stripPrefix ":l " input ->
+              do mod <- lift $ loadFile filename
+                 outputStrLn $ "loaded " ++ filename
+                 loop
+                   | otherwise -> do outputStrLn $ "Unrecognize input : " ++ input
+                                     loop
 
-
+loadFile filename = flip E.catches handlers $
+           do cnts <- readFile filename
+              case parseModule filename cnts of
+                   Left e -> E.throw e
+                   Right a -> do putStrLn $ "Parsing success! \n"
+                                 print $ disp a
+                                 return a
+                where handlers = [E.Handler parseHandler] 
+                      parseHandler (e :: ParseError)= print (disp e) >> exitFailure      
 
 {-
 main = flip catches handlers $ do
