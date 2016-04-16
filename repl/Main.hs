@@ -1,6 +1,7 @@
 {-# LANGUAGE  ScopedTypeVariables, PatternGuards #-}
 module Main where
 import Cegt.Parser
+import Cegt.Monad
 import Cegt.Syntax
 import Cegt.PrettyPrinting
 
@@ -20,9 +21,10 @@ import System.Console.Haskeline
 
 
 main :: IO ()
-main = runInputT defaultSettings loop
-  where 
-    loop :: InputT IO ()
+main = runInputT defaultSettings loop'
+  where
+    loop' = undefined
+    loop :: InputT (StateT Env IO) ()
     loop = do
       minput <- getInputLine "cegt> "
       case minput of
@@ -39,6 +41,7 @@ main = runInputT defaultSettings loop
                    | otherwise -> do outputStrLn $ "Unrecognize input : " ++ input
                                      loop
 
+-- loadFile :: FilePath -> IO Module
 loadFile filename = flip E.catches handlers $
            do cnts <- readFile filename
               case parseModule filename cnts of
