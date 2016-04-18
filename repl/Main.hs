@@ -1,6 +1,5 @@
-{-# LANGUAGE  ScopedTypeVariables, PatternGuards #-}
+{-# LANGUAGE  ScopedTypeVariables, PatternGuards, StandaloneDeriving, DeriveDataTypeable #-}
 module Main where
--- 
 import Cegt.Parser
 import Cegt.Monad
 import Cegt.Syntax
@@ -13,18 +12,32 @@ import System.Console.CmdArgs
 import Data.Typeable
 import Data.List
 import qualified Control.Exception as E
-import Control.Monad.State
+import Control.Monad.State.Strict
 import System.Environment
 import System.Exit
 import System.IO(withFile,hGetContents,IOMode(..),hClose,openFile)
-import Data.Map
+-- import Data.Map
 import System.Console.Haskeline
 
 
+
+-- main :: IO ()
+-- main = runInputT defaultSettings loop
+--    where 
+--        loop :: InputT IO ()
+--        loop = do
+--            minput <- getInputLine "% "
+--            case minput of
+--                Nothing -> return ()
+--                Just "quit" -> return ()
+--                Just input -> do outputStrLn $ "Input was: " ++ input
+-- loop
+
+-- instance MonadException (StateT Int IO)
+
 main :: IO ()
-main = runInputT defaultSettings loop'
+main = evalStateT (runInputT defaultSettings loop) emptyEnv
   where
-    loop' = undefined
     loop :: InputT (StateT Env IO) ()
     loop = do
       minput <- getInputLine "cegt> "
@@ -36,20 +49,35 @@ main = runInputT defaultSettings loop'
                loop
 
                    | Just filename <- stripPrefix ":l " input ->
-              do mod <- lift $ loadFile filename
-                 outputStrLn $ "loaded " ++ filename
+              do lift (loadFile filename)
                  loop
                    | otherwise -> do outputStrLn $ "Unrecognize input : " ++ input
                                      loop
 
--- loadFile :: FilePath -> IO Module
-loadFile filename = flip E.catches handlers $
-           do cnts <- readFile filename
-              case parseModule filename cnts of
-                   Left e -> E.throw e
-                   Right a -> do putStrLn $ "Parsing success! \n"
-                                 print $ disp a
-                                 return a
-                where handlers = [E.Handler parseHandler] 
-                      parseHandler (e :: ParseError)= print (disp e) >> exitFailure      
+
+-- instance Exception Doc
+-- deriving instance Typeable Doc
+
+loadFile :: FilePath -> (StateT Env IO) ()
+loadFile filename = do cnts <- lift (readFile filename)
+                       case parseModule filename cnts of
+                         Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
+                         Right a -> do modify (\ s -> extendMod a s)
+                                       lift $ print (text ("loaded: "++filename))
+                                       lift $ print (disp a)
+
+                           where extendMod [] s = s
+                                 extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
+  
+
+
+  -- $ flip E.catches handlers $
+  --          do cnts <- readFile filename
+  --             case parseModule filename cnts of
+  --                  Left e -> E.throw e
+  --                  Right a -> do putStrLn $ "Parsing success! \n"
+  --                                print $ disp a
+  --                                return a
+  --               where handlers = [E.Handler parseHandler] 
+  --                     parseHandler (e :: ParseError)= print (disp e) >> exitFailure      
 

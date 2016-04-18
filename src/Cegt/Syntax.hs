@@ -14,7 +14,6 @@ type Name = String
 -- merge prog, kind, type into one syntactic category.
 data Exp = Var Name
           | Const Name
-          | Constr Name
           | App Exp Exp 
           | Lambda Name Exp 
           | Pos SourcePos Exp
@@ -22,10 +21,7 @@ data Exp = Var Name
           | Arrow Exp Exp
           | Forall Name Exp
           deriving (Show, Eq, Ord)
-data Module = Module [Decl] deriving (Show)
-
-data Decl = Rule Exp Exp
-          deriving Show
+type Module = [(Name, Exp)] 
 
                       
 -- freeVar :: Exp -> S.Set Name

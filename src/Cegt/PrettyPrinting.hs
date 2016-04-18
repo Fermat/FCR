@@ -33,7 +33,6 @@ dParen level x =
 
 instance Disp Exp where
   disp (Const x) = disp x
-  disp (Constr x) = disp x
   disp (Var x) = disp x
   disp (s@(App s1 s2)) =
     dParen (precedence s - 1) s1 <+>
@@ -61,17 +60,16 @@ instance Disp Exp where
 
   precedence (Pos _ t) = precedence t
   precedence (Var _) = 12
-  precedence (Constr _) = 12
   precedence (Const _) = 12
   precedence (App _ _) = 10
   precedence _ = 0
 
 
-instance Disp Module where
-  disp (Module decl) = vcat (map disp decl)
+instance Disp [(Name, Exp)] where
+  disp decl = vcat (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) decl)
 
-instance Disp Decl where
-  disp (Rule n r) = disp n <+> text ":" <+> disp r
+-- instance Disp Decl where
+--   disp (Rule n r) = disp n <+> text ":" <+> disp r
 
 instance Disp SourcePos where
   disp sp =  text (sourceName sp) <> colon <> int (sourceLine sp)
@@ -83,4 +81,5 @@ instance Disp ParseError where
   where sem = text $ showErrorMessages "or" "unknown parse error"
               "expecting" "unexpected" "end of input"
               (errorMessages pe)
+
 

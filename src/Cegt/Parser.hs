@@ -9,7 +9,7 @@ import Text.Parsec.Char
 import Text.Parsec.Expr(Operator(..),Assoc(..),buildExpressionParser)
 import qualified Text.Parsec.Token as Token
 import Text.Parsec.Indent
-import Control.Applicative hiding ((<|>),many, optional)
+import Control.Applicative hiding ((<|>),many, optional, Const)
 import Control.Monad.State.Lazy
 import "mtl" Control.Monad.Identity
 import Control.Exception(Exception)
@@ -25,25 +25,22 @@ parseModule srcName cnts =
 
 type Parser a = IndentParser String () a
 
-deriving instance Typeable P.ParseError
-instance Exception P.ParseError 
+-- deriving instance Typeable P.ParseError
+-- instance Exception P.ParseError 
 
 -- parse module
 gModule :: Parser Module
 gModule = do
-  bs <- many gDecl
+  bs <- many ruleDecl
   eof
-  return $ Module bs
+  return $ bs
 
-gDecl :: Parser Decl
-gDecl = ruleDecl
-
-ruleDecl :: Parser Decl
+ruleDecl :: Parser (Name, Exp)
 ruleDecl = do
-  c <- con 
+  (Const c) <- con 
   reservedOp ":"
   t <- rule
-  return $ Rule c t
+  return $ (c, t)
   
 var :: Parser Exp
 var = do
@@ -55,7 +52,7 @@ con :: Parser Exp
 con = do
   n <- identifier
   when (isLower (head n)) $ parserFail "expected to begin with uppercase letter"
-  return (Constr n)
+  return (Const n)
 
 -- parser for FType--
 rule :: Parser Exp
