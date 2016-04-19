@@ -48,20 +48,22 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
         Just input | Just rest <- stripPrefix ":e " input ->
             do let l = words rest
                case l of
-                x:n:[] -> 
-                  case parseExp x of
-                    Left err -> do outputStrLn (show (disp err $$ text ("fail to parse expression "++x)))
-                                   loop
+                n:xs -> 
+                  case parseExp (unwords xs) of
+                    Left err -> do
+                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ (unwords xs))))
+                      loop
                     Right e -> 
                           do state <- lift get
                              let num = read n :: Int
                                  res = steps (axioms state) e num
                              outputStrLn $ "the result of evaluation is: " ++ (show $ disp res)
                              loop
-                _ -> do outputStrLn $ "unknown argument for :e " ++ (unwords l)
+                _ -> do outputStrLn $ "not enough argument for :e "
                         loop
-                   | Just filename <- stripPrefix ":l " input ->
-              do lift (loadFile filename)
+                   | Just rest <- stripPrefix ":l " input ->
+              do let filename:[] = words rest
+                 lift (loadFile filename)
                  loop
                    | otherwise -> do outputStrLn $ "Unrecognize input : " ++ input
                                      loop

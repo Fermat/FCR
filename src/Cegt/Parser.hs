@@ -24,7 +24,7 @@ parseModule srcName cnts =
   runIndent srcName $ runParserT gModule () srcName cnts
 
 parseExp :: String -> Either P.ParseError Exp
-parseExp s = runIndent [] $ runParserT term () [] s
+parseExp s = runIndent [] $ runParserT (try (parens term) <|> term) () [] s
   
 type Parser a = IndentParser String () a
 
