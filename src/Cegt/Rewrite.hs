@@ -11,14 +11,24 @@ data Trace = Branch Name Exp [Trace] deriving (Show, Eq, Ord)
 -- reduce :: Exp -> StateT Trace (Reader [(Name, Exp)]) Exp
 -- reduce e = do rules <- ask
 --               let matches = [  map (\(Arrow x y) -> ) rules]
-              
-steps :: [(Name, Exp)] -> Exp -> Int -> Exp
+
 steps env e n | n == 0 = e
-steps env e n | n > 0 = case firstMatch e env of
-                           Nothing -> case e of
-                             App a b -> App (steps env a n) (steps env b n)
-                             _ -> e
-                           Just (k, e') -> steps env e' (n-1)
+steps env e n | n > 0 = case step env e of
+                            Nothing -> e
+                            Just e' -> steps env e' (n-1)
+                               
+
+step :: [(Name, Exp)] -> Exp -> Maybe Exp
+step env e = case firstMatch e env of
+                    Nothing -> case e of
+                                   App a b ->
+                                     case (step env a) of
+                                       Nothing -> case step env b of
+                                                    Nothing -> Nothing
+                                                    Just b' -> Just $ App a b'
+                                       Just a' -> Just $ App a' b
+                                   _ -> Nothing
+                    Just (k, e') -> Just e'
 
 
 firstMatch  x [] = Nothing
