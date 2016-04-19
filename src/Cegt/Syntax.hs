@@ -16,7 +16,6 @@ data Exp = Var Name
           | Const Name
           | App Exp Exp 
           | Lambda Name Exp 
-          | Pos SourcePos Exp
           | Imply Exp Exp
           | Arrow Exp Exp
           | Forall Name Exp

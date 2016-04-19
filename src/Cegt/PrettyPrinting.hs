@@ -40,7 +40,6 @@ instance Disp Exp where
   disp (Lambda x t) = text "\\" <+> text x
                       <+> text "." <+> disp t
           
-  disp (Pos _ t) = disp t
   disp (a@(Arrow t1 t2)) =
     disp t1
     <+> text "~>"
@@ -57,8 +56,6 @@ instance Disp Exp where
     <+> dParen (precedence a - 1) t2
 
   precedence (Imply _ _) = 4
-
-  precedence (Pos _ t) = precedence t
   precedence (Var _) = 12
   precedence (Const _) = 12
   precedence (App _ _) = 10
