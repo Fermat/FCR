@@ -23,6 +23,9 @@ parseModule :: String -> String -> Either P.ParseError Module
 parseModule srcName cnts =
   runIndent srcName $ runParserT gModule () srcName cnts
 
+parseExp :: String -> Either P.ParseError Exp
+parseExp s = runIndent [] $ runParserT term () [] s
+  
 type Parser a = IndentParser String () a
 
 -- deriving instance Typeable P.ParseError
@@ -77,10 +80,10 @@ compoundArgs =
 
 -----------------------Positions -------
   
-wrapPos :: Parser Exp -> Parser Exp
-wrapPos p = pos <$> getPosition <*> p
-  where pos x (Pos y e) | x==y = (Pos y e)
-        pos x y = Pos x y
+-- wrapPos :: Parser Exp -> Parser Exp
+-- wrapPos p = pos <$> getPosition <*> p
+--   where pos x (Pos y e) | x==y = (Pos y e)
+--         pos x y = Pos x y
 
 
 -------------------------------

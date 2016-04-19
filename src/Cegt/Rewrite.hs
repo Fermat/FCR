@@ -4,7 +4,7 @@ import Cegt.Syntax
 import Control.Monad
 import Data.List
 import Control.Monad.State
-import Control.Monad.Trans.Reader
+import Control.Monad.Reader
 
 data Trace = Branch Name Exp [Trace] deriving (Show, Eq, Ord)
 

@@ -1,6 +1,7 @@
 {-# LANGUAGE  ScopedTypeVariables, PatternGuards, StandaloneDeriving, DeriveDataTypeable #-}
 module Main where
 import Cegt.Parser
+import Cegt.Rewrite
 import Cegt.Monad
 import Cegt.Syntax
 import Cegt.PrettyPrinting
@@ -44,10 +45,21 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
       case minput of
         Nothing -> return ()
         Just ":q" -> return ()
-        Just input | Just rest <- stripPrefix ":e " input -> 
-            do outputStrLn $ "the term was: " ++ rest
-               loop
-
+        Just input | Just rest <- stripPrefix ":e " input ->
+            do let l = words rest
+               case l of
+                x:n:[] -> 
+                  case parseExp x of
+                    Left err -> do outputStrLn (show (disp err $$ text ("fail to parse expression "++x)))
+                                   loop
+                    Right e -> 
+                          do state <- lift get
+                             let num = read n :: Int
+                                 res = steps (axioms state) e num
+                             outputStrLn $ "the result of evaluation is: " ++ (show $ disp res)
+                             loop
+                _ -> do outputStrLn $ "unknown argument for :e " ++ (unwords l)
+                        loop
                    | Just filename <- stripPrefix ":l " input ->
               do lift (loadFile filename)
                  loop
