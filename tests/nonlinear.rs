@@ -1,0 +1,5 @@
+K1 : A (L x) ~> L (A x)
+K2 : R (A (A x)) ~> A (A (A (R x)))
+K3 : B (L x) ~> B (R (A x))
+K4 : R (B x) ~> L (B x)
+K5 : R (A (B x)) ~> L (A (B x))
