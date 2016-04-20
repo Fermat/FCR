@@ -1,0 +1,6 @@
+1. Implement reduction tree? And display path? It can be very large and you better 
+do it good.
+
+2. Generating evidence for loops.
+
+3. Device hereustic method. 
