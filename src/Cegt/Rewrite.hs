@@ -6,29 +6,31 @@ import Data.List
 import Control.Monad.State
 import Control.Monad.Reader
 
-data Trace = Branch Name Exp [Trace] deriving (Show, Eq, Ord)
+data Trace = Trace [(Name, Exp)] 
 
 -- reduce :: Exp -> StateT Trace (Reader [(Name, Exp)]) Exp
 -- reduce e = do rules <- ask
 --               let matches = [  map (\(Arrow x y) -> ) rules]
 
-steps env e n | n == 0 = e
+getTrace env e n = execState (steps env e n) (Trace [("", e)])
+steps :: [(Name, Exp)] -> Exp -> Int -> State Trace ()
+steps env e n | n == 0 = return ()
 steps env e n | n > 0 = case step env e of
-                            Nothing -> e
-                            Just e' -> steps env e' (n-1)
-                               
+                            Nothing -> return ()
+                            Just (k, e') -> do modify (\ (Trace s) -> Trace (s ++ [(k,e')]))
+                                               steps env e' (n-1)
 
-step :: [(Name, Exp)] -> Exp -> Maybe Exp
+step :: [(Name, Exp)] -> Exp -> (Maybe (Name, Exp))
 step env e = case firstMatch e env of
                     Nothing -> case e of
                                    App a b ->
                                      case (step env a) of
                                        Nothing -> case step env b of
                                                     Nothing -> Nothing
-                                                    Just b' -> Just $ App a b'
-                                       Just a' -> Just $ App a' b
+                                                    Just (n, b') -> Just (n, App a b')
+                                       Just (n, a') -> Just (n, App a' b)
                                    _ -> Nothing
-                    Just (k, e') -> Just e'
+                    Just (k, e') -> Just (k, e')
 
 
 firstMatch  x [] = Nothing

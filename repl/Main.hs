@@ -56,8 +56,8 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                     Right e -> 
                           do state <- lift get
                              let num = read n :: Int
-                                 res = steps (axioms state) e num
-                             outputStrLn $ "the result of evaluation is: " ++ (show $ disp res)
+                                 res = getTrace (axioms state) e num
+                             outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
                              loop
                 _ -> do outputStrLn $ "not enough argument for :e "
                         loop
