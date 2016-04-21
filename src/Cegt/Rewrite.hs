@@ -9,7 +9,16 @@ import Control.Monad.Reader
 
 type Pos = [Int] -- a sequence of 0 and 1, 0 indicates first argument for App
 
-type RedTree = Tree (Name, Exp)
+type RedTree = Tree (Pos, Name, Exp)
+
+
+reduce :: [(Name, Exp)] -> [(Pos, Name, Exp)] -> Int -> State RedTree ()
+reduce env es n | n == 0 = return ()
+reduce env es n | n > 0 = case reduceList env es of
+                            [] -> return ()
+                            es' -> do modify (\ (Trace s) -> Trace (s ++ [(k,e')]))
+                                    reduce env es' (n-1)
+
 
 reduceList :: [(Name, Exp)] -> [(Pos, Name, Exp)] -> [(Pos, Name, Exp)]
 reduceList env l = concat $ map (\ (_, _, x) -> reduceOne x env) l
