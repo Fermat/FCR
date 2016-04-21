@@ -3,22 +3,53 @@ module Cegt.Rewrite where
 import Cegt.Syntax
 import Control.Monad
 import Data.List
+import Data.Tree
 import Control.Monad.State
 import Control.Monad.Reader
 
+type Pos = [Int] -- a sequence of 0 and 1, 0 indicates first argument for App
+
+type RedTree = Tree (Name, Exp)
+
+reduceOne :: 
+
+replace :: Exp -> Pos -> Exp -> Exp
+replace e [] r = r
+replace (App t1 t2) (x:xs) r | x ==1 = App t1 (replace t2 xs r)
+replace (App t1 t2) (x:xs) r | x ==0 = App (replace t1 xs r) t2
+
+getReductions :: Exp -> [(Name, Exp)] -> [((Pos, Exp), [(Name, Exp)])]
+getReductions x env = [((p, e), r) | (p, e) <- getSubterms x, let r = allMatches e env, r /= [] ]
+
+getSubterms :: Exp -> [(Pos, Exp)]
+getSubterms x = runReader (subterms x) []
+
+subterms :: Exp -> Reader Pos [(Pos, Exp)]
+subterms (Var x) = do p <- ask
+                      return [(p, Var x)]
+subterms (Const x) = do p <- ask
+                        return [(p, Const x)]
+
+subterms (App t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
+                          l2 <- local (\r -> r++[1]) (subterms t2)
+                          p <- ask
+                          return ((p, (App t1 t2)):(l1++l2))
+
+
+
+
 data Trace = Trace [(Name, Exp)] 
 
--- reduce :: Exp -> StateT Trace (Reader [(Name, Exp)]) Exp
--- reduce e = do rules <- ask
---               let matches = [  map (\(Arrow x y) -> ) rules]
-
 getTrace env e n = execState (steps env e n) (Trace [("", e)])
+
 steps :: [(Name, Exp)] -> Exp -> Int -> State Trace ()
 steps env e n | n == 0 = return ()
 steps env e n | n > 0 = case step env e of
                             Nothing -> return ()
                             Just (k, e') -> do modify (\ (Trace s) -> Trace (s ++ [(k,e')]))
                                                steps env e' (n-1)
+
+                                               
 
 step :: [(Name, Exp)] -> Exp -> (Maybe (Name, Exp))
 step env e = case firstMatch e env of
@@ -32,19 +63,16 @@ step env e = case firstMatch e env of
                                    _ -> Nothing
                     Just (k, e') -> Just (k, e')
 
-
+firstMatch :: Exp -> [(Name, Exp)] -> Maybe (Name, Exp)
 firstMatch  x [] = Nothing
 firstMatch  x ((k, Arrow l r):ys) = 
          case match l x of
            Nothing -> firstMatch x ys
            Just s -> Just $ (k, applyE s r)
 
-                                    
-matchRule l n e =  match l e >>= \ s -> return (n, s)
 
-
-
-
+allMatches :: Exp -> [(Name, Exp)] -> [(Name, Exp)]
+allMatches x env = [ (k, applyE s r)  | (k, Arrow l r) <- env, s <- match l x]
 
 type Subst = [(Name, Exp)]
 
