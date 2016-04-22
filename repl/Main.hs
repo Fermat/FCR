@@ -89,7 +89,7 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                     Right e -> 
                           do state <- lift get
                              let num = read n :: Int
-                                 redTree = reduce (axioms state) ([], "", e) num
+                                 redTree = reduce (axioms state) ([], "_", e) num
                                  pTree = dispTree redTree
                              outputStrLn $ "the execution tree is:\n " ++ (drawTree pTree)
                              loop

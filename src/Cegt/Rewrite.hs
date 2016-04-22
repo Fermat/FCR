@@ -14,18 +14,11 @@ type RedTree = Tree (Pos, Name, Exp)
 
 dispTree :: Tree (Pos, Name, Exp) -> Tree String
 dispTree (Node (p, n, e) xs) =
-  Node ((unwords (map show p)) ++", " ++ n ++ ", " ++ (show $ disp e)) $ map dispTree xs
+  Node ("["++(concat $ map show p)++"]" ++", " ++ n ++ ", " ++ (show $ disp e)) $ map dispTree xs
 
 reduce :: [(Name, Exp)] -> (Pos, Name, Exp) -> Int -> RedTree
 reduce env node n | n == 0 = Node node []
-reduce env (p, k, e) n | n > 0 = case reduceOne e env of
-                                   [] -> Node (p,k,e) []
-                                   es' -> Node (p,k,e) (map (\ x -> reduce env x (n-1)) es')
-
-
-
-reduceList :: [(Name, Exp)] -> [(Pos, Name, Exp)] -> [(Pos, Name, Exp)]
-reduceList env l = concat $ map (\ (_, _, x) -> reduceOne x env) l
+reduce env (p, k, e) n | n > 0 = Node (p,k,e) (map (\ x -> reduce env x (n-1)) $ reduceOne e env)
 
 reduceOne :: Exp -> [(Name, Exp)] -> [(Pos, Name, Exp)]
 reduceOne e env = [(p, n, replace e p r') | ((p, r), l) <- getReductions e env, (n, r') <- l]
