@@ -11,20 +11,19 @@ type Pos = [Int] -- a sequence of 0 and 1, 0 indicates first argument for App
 
 type RedTree = Tree (Pos, Name, Exp)
 
-{-
-reduce :: [(Name, Exp)] -> [(Pos, Name, Exp)] -> Int -> State RedTree ()
-reduce env es n | n == 0 = return ()
-reduce env es n | n > 0 = case reduceList env es of
-                            [] -> return ()
-                            es' -> do modify (\ (Trace s) -> Trace (s ++ [(k,e')]))
-                                    reduce env es' (n-1)
--}
+reduce :: [(Name, Exp)] -> (Pos, Name, Exp) -> Int -> RedTree
+reduce env node n | n == 0 = Node node []
+reduce env (p, k, e) n | n > 0 = case reduceOne e env of
+                                   [] -> Node (p,k,e) []
+                                   es' -> Node (p,k,e) (map (\ x -> reduce env x (n-1)) es')
+
+
 
 reduceList :: [(Name, Exp)] -> [(Pos, Name, Exp)] -> [(Pos, Name, Exp)]
 reduceList env l = concat $ map (\ (_, _, x) -> reduceOne x env) l
 
 reduceOne :: Exp -> [(Name, Exp)] -> [(Pos, Name, Exp)]
-reduceOne e env = [ (p, n, replace e p r') | ((p, r), l) <- getReductions e env,  (n, r') <- l ]
+reduceOne e env = [(p, n, replace e p r') | ((p, r), l) <- getReductions e env, (n, r') <- l]
 
 replace :: Exp -> Pos -> Exp -> Exp
 replace e [] r = r
