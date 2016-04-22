@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
 module Cegt.PrettyPrinting where
 import Cegt.Syntax
-import Cegt.Rewrite
+-- import Cegt.Rewrite
 import Text.PrettyPrint
 import Text.Parsec.Pos
 import Data.Char
@@ -65,8 +65,6 @@ instance Disp Exp where
 instance Disp [(Name, Exp)] where
   disp decl = vcat (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) decl)
 
-instance Disp Trace where
-  disp (Trace ((_, e):decl)) = vcat (disp e : (map (\ (n, exp) -> text "-" <> disp n <> text "->" <+> disp exp) decl))
 
 -- instance Disp Decl where
 --   disp (Rule n r) = disp n <+> text ":" <+> disp r

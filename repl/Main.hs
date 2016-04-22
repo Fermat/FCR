@@ -12,6 +12,7 @@ import Text.Parsec(ParseError)
 import System.Console.CmdArgs
 import Data.Typeable
 import Data.List
+import Data.Tree
 import qualified Control.Exception as E
 import Control.Monad.State.Strict
 import System.Environment
@@ -74,6 +75,23 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                              let num = read n :: Int
                                  res = getTrace' (axioms state) e num
                              outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
+                             loop
+                _ -> do outputStrLn $ "not enough argument for :inner "
+                        loop
+        Just input | Just rest <- stripPrefix ":full " input ->
+            do let l = words rest
+               case l of
+                n:xs -> 
+                  case parseExp (unwords xs) of
+                    Left err -> do
+                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ (unwords xs))))
+                      loop
+                    Right e -> 
+                          do state <- lift get
+                             let num = read n :: Int
+                                 redTree = reduce (axioms state) ([], "", e) num
+                                 pTree = dispTree redTree
+                             outputStrLn $ "the execution tree is:\n " ++ (drawTree pTree)
                              loop
                 _ -> do outputStrLn $ "not enough argument for :inner "
                         loop

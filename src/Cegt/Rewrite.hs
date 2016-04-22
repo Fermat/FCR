@@ -1,15 +1,20 @@
 module Cegt.Rewrite where
-
+import Cegt.PrettyPrinting
 import Cegt.Syntax
 import Control.Monad
 import Data.List
 import Data.Tree
+import Text.PrettyPrint
 import Control.Monad.State
 import Control.Monad.Reader
 
 type Pos = [Int] -- a sequence of 0 and 1, 0 indicates first argument for App
 
 type RedTree = Tree (Pos, Name, Exp)
+
+dispTree :: Tree (Pos, Name, Exp) -> Tree String
+dispTree (Node (p, n, e) xs) =
+  Node ((unwords (map show p)) ++", " ++ n ++ ", " ++ (show $ disp e)) $ map dispTree xs
 
 reduce :: [(Name, Exp)] -> (Pos, Name, Exp) -> Int -> RedTree
 reduce env node n | n == 0 = Node node []
@@ -47,7 +52,10 @@ subterms (App t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
                           p <- ask
                           return ((p, (App t1 t2)):(l1++l2))
 
-data Trace = Trace [(Name, Exp)] 
+data Trace = Trace [(Name, Exp)]
+instance Disp Trace where
+  disp (Trace ((_, e):decl)) = vcat (disp e : (map (\ (n, exp) -> text "-" <> disp n <> text "->" <+> disp exp) decl))
+
 
 stepsInner :: [(Name, Exp)] -> Exp -> Int -> State Trace ()
 stepsInner env e n | n == 0 = return ()
