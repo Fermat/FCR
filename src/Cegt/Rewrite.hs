@@ -11,14 +11,14 @@ type Pos = [Int] -- a sequence of 0 and 1, 0 indicates first argument for App
 
 type RedTree = Tree (Pos, Name, Exp)
 
-
+{-
 reduce :: [(Name, Exp)] -> [(Pos, Name, Exp)] -> Int -> State RedTree ()
 reduce env es n | n == 0 = return ()
 reduce env es n | n > 0 = case reduceList env es of
                             [] -> return ()
                             es' -> do modify (\ (Trace s) -> Trace (s ++ [(k,e')]))
                                     reduce env es' (n-1)
-
+-}
 
 reduceList :: [(Name, Exp)] -> [(Pos, Name, Exp)] -> [(Pos, Name, Exp)]
 reduceList env l = concat $ map (\ (_, _, x) -> reduceOne x env) l
@@ -48,13 +48,30 @@ subterms (App t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
                           p <- ask
                           return ((p, (App t1 t2)):(l1++l2))
 
-
-
-
 data Trace = Trace [(Name, Exp)] 
 
-getTrace env e n = execState (steps env e n) (Trace [("", e)])
+stepsInner :: [(Name, Exp)] -> Exp -> Int -> State Trace ()
+stepsInner env e n | n == 0 = return ()
+stepsInner env e n | n > 0 = case stepInner env e of
+                                Nothing -> return ()
+                                Just (k, e') -> do modify (\ (Trace s) -> Trace (s ++ [(k,e')]))
+                                                   stepsInner env e' (n-1)
 
+stepInner :: [(Name, Exp)] -> Exp -> (Maybe (Name, Exp))
+stepInner env e = case e of
+                    App a b ->
+                      case (step env a) of
+                        Nothing -> case step env b of
+                                      Nothing -> case firstMatch e env of
+                                                   Just (k, e') -> Just (k, e')
+                                                   _ -> Nothing
+                                      Just (n, b') -> Just (n, App a b')
+                        Just (n, a') -> Just (n, App a' b)
+                    _ -> Nothing
+
+
+getTrace env e n = execState (steps env e n) (Trace [("", e)])
+getTrace' env e n = execState (stepsInner env e n) (Trace [("", e)])
 steps :: [(Name, Exp)] -> Exp -> Int -> State Trace ()
 steps env e n | n == 0 = return ()
 steps env e n | n > 0 = case step env e of

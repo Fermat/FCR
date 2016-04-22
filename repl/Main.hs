@@ -45,7 +45,7 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
       case minput of
         Nothing -> return ()
         Just ":q" -> return ()
-        Just input | Just rest <- stripPrefix ":e " input ->
+        Just input | Just rest <- stripPrefix ":outer " input ->
             do let l = words rest
                case l of
                 n:xs -> 
@@ -59,8 +59,25 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                                  res = getTrace (axioms state) e num
                              outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
                              loop
-                _ -> do outputStrLn $ "not enough argument for :e "
+                _ -> do outputStrLn $ "not enough argument for :outer "
                         loop
+        Just input | Just rest <- stripPrefix ":inner " input ->
+            do let l = words rest
+               case l of
+                n:xs -> 
+                  case parseExp (unwords xs) of
+                    Left err -> do
+                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ (unwords xs))))
+                      loop
+                    Right e -> 
+                          do state <- lift get
+                             let num = read n :: Int
+                                 res = getTrace' (axioms state) e num
+                             outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
+                             loop
+                _ -> do outputStrLn $ "not enough argument for :inner "
+                        loop
+                        
                    | Just rest <- stripPrefix ":l " input ->
               do let filename:[] = words rest
                  lift (loadFile filename)
