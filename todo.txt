@@ -1,5 +1,5 @@
 1. Implement reduction tree? And display path? It can be very large and you better 
-do it good.
+do it good. [done.]
 
 2. Generating evidence for loops.
 
