@@ -12,3 +12,9 @@ findCycle [] pre = (pre, [])
 findCycle (y:ys) pre = case findIndex (\x -> x == y) ys of
                           Nothing -> findCycle ys (pre++[y])
                           Just i ->  (pre, y : take i ys)
+
+cycleProof :: ([Name], [Name]) -> [(Name, Exp)] -> Exp -> [(Name, Exp)]
+cycleProof (pre, cyc) env e = resolve pre env e
+
+resolve :: [Name] -> [(Name, Exp)] -> (Exp, Exp)
+
