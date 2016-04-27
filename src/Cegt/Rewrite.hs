@@ -55,54 +55,53 @@ stepsInner :: [(Name, Exp)] -> Exp -> Int -> State Trace ()
 stepsInner env e n | n == 0 = return ()
 stepsInner env e n | n > 0 = case stepInner env e of
                                 Nothing -> return ()
-                                Just (p, k, e') ->
-                                  do modify (\ (Trace s) -> Trace (s ++ [(p, k,e')]))
+                                Just (p, sub, k, e') ->
+                                  do modify (\ (Trace s) -> Trace (s ++ [(p, sub, k,e')]))
                                      stepsInner env e' (n-1)
 
-stepInner :: [(Name, Exp)] -> Exp -> (Maybe (Pos, Name, Exp))
+stepInner :: [(Name, Exp)] -> Exp -> (Maybe (Pos, Subst, Name, Exp))
 stepInner env e = case e of
                     App a b ->
                       case (step env a) of
                         Nothing -> case step env b of
                                       Nothing -> case firstMatch e env of
-                                                   Just (k, e') -> Just ([], k, e')
+                                                   Just (k, e', s) -> Just ([], s, k, e')
                                                    _ -> Nothing
-                                      Just (p, n, b') -> Just (1:p, n, App a b')
-                        Just (p, n, a') -> Just (0:p, n, App a' b)
+                                      Just (p, s, n, b') -> Just (1:p, s, n, App a b')
+                        Just (p, s, n, a') -> Just (0:p, s, n, App a' b)
                     _ -> Nothing
 
 
-getTrace env e n = execState (steps env e n) (Trace [([],"", e)])
-getTrace' env e n = execState (stepsInner env e n) (Trace [([],"", e)])
+getTrace env e n = execState (steps env e n) (Trace [([],[],"", e)])
+getTrace' env e n = execState (stepsInner env e n) (Trace [([],[],"", e)])
 
 steps :: [(Name, Exp)] -> Exp -> Int -> State Trace ()
 steps env e n | n == 0 = return ()
 steps env e n | n > 0 = case step env e of
                             Nothing -> return ()
-                            Just (p, k, e') ->
-                              do modify (\ (Trace s) -> Trace (s ++ [(p, k,e')]))
+                            Just (p, sub, k, e') ->
+                              do modify (\ (Trace s) -> Trace (s ++ [(p,sub, k,e')]))
                                  steps env e' (n-1)
 
-                                               
-
-step :: [(Name, Exp)] -> Exp -> (Maybe (Pos, Name, Exp))
+step :: [(Name, Exp)] -> Exp -> (Maybe (Pos, Subst, Name, Exp))
 step env e = case firstMatch e env of
                     Nothing -> case e of
                                    App a b ->
                                      case (step env a) of
                                        Nothing -> case step env b of
                                                     Nothing -> Nothing
-                                                    Just (p, n, b') -> Just (1:p, n, App a b')
-                                       Just (p, n, a') -> Just (0:p, n, App a' b)
+                                                    Just (p, s, n, b') ->
+                                                      Just (1:p, s, n, App a b')
+                                       Just (p, s, n, a') -> Just (0:p, s, n, App a' b)
                                    _ -> Nothing
-                    Just (k, e') -> Just ([], k, e')
+                    Just (k, e', s) -> Just ([], s, k, e')
 
-firstMatch :: Exp -> [(Name, Exp)] -> Maybe (Name, Exp)
+firstMatch :: Exp -> [(Name, Exp)] -> Maybe (Name, Exp, Subst)
 firstMatch  x [] = Nothing
 firstMatch  x ((k, Arrow l r):ys) = 
          case match l x of
            Nothing -> firstMatch x ys
-           Just s -> Just $ (k, applyE s r)
+           Just s -> Just $ (k, applyE s r, s)
 
 
 allMatches :: Exp -> [(Name, Exp)] -> [(Name, Exp)]
