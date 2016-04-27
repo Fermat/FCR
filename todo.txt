@@ -3,4 +3,4 @@ do it good. [done.]
 
 2. Generating evidence for loops.
 
-3. Device hereustic method. 
+3. Device hereustic method for some non-loop/regular word of order 2. 

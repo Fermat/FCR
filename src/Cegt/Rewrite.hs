@@ -45,9 +45,9 @@ subterms (App t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
                           p <- ask
                           return ((p, (App t1 t2)):(l1++l2))
 
-data Trace = Trace [(Name, Exp)]
+data Trace = Trace [(Pos, Name, Exp)]
 instance Disp Trace where
-  disp (Trace ((_, e):decl)) = vcat (disp e : (map (\ (n, exp) -> text "-" <> disp n <> text "->" <+> disp exp) decl))
+  disp (Trace ((_, _, e):decl)) = vcat (disp e : (map (\ (n, exp) -> text "-" <> disp n <> text "->" <+> disp exp) decl))
 
 
 stepsInner :: [(Name, Exp)] -> Exp -> Int -> State Trace ()

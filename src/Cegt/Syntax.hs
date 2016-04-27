@@ -22,7 +22,6 @@ data Exp = Var Name
           deriving (Show, Eq, Ord)
 type Module = [(Name, Exp)] 
 
-                      
 -- freeVar :: Exp -> S.Set Name
 -- freeVar (Var x) = S.insert x S.empty
 -- freeVar (Const x) = S.empty
