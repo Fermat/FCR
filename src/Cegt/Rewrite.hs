@@ -138,6 +138,10 @@ applyE subs (Forall y f) =
  let subs' = filter (\(x, _) -> not (x == y)) subs in
  Forall y (applyE subs' f)
 
+applyE subs (Lambda y f) =
+ let subs' = filter (\(x, _) -> not (x == y)) subs in
+ Lambda y (applyE subs' f)
+
 applyE subs (App f1 f2) =
   let a1 = applyE subs f1
       a2 = applyE subs f2 in
