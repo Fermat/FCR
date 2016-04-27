@@ -1,6 +1,7 @@
 {-# LANGUAGE  ScopedTypeVariables, PatternGuards, StandaloneDeriving, DeriveDataTypeable #-}
 module Main where
 import Cegt.Parser
+import Cegt.Loop
 import Cegt.Rewrite
 import Cegt.Monad
 import Cegt.Syntax
@@ -94,6 +95,24 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                              outputStrLn $ "the execution tree is:\n " ++ (drawTree pTree)
                              loop
                 _ -> do outputStrLn $ "not enough argument for :inner "
+                        loop
+        Just input | Just rest <- stripPrefix ":partial " input ->
+            do let l = words rest
+               case l of
+                n:xs -> 
+                  case parseExp (unwords xs) of
+                    Left err -> do
+                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ (unwords xs))))
+                      loop
+                    Right e -> 
+                          do state <- lift get
+                             let num = read n :: Int
+                                 res = getTrace' (axioms state) e num
+                                 pf = partial res
+                             outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
+                             outputStrLn $ "the partial proof is:\n " ++ (show $ disp pf)
+                             loop
+                _ -> do outputStrLn $ "not enough argument for :partial "
                         loop
                         
                    | Just rest <- stripPrefix ":l " input ->
