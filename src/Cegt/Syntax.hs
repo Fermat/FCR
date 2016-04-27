@@ -22,14 +22,14 @@ data Exp = Var Name
           deriving (Show, Eq, Ord)
 type Module = [(Name, Exp)] 
 
--- freeVar :: Exp -> S.Set Name
--- freeVar (Var x) = S.insert x S.empty
--- freeVar (Const x) = S.empty
--- freeVar (Constr x) = S.empty
--- freeVar (Arrow f1 f2) = (freeVar f1) `S.union` (freeVar f2)
--- freeVar (App f1 f2) = (freeVar f1) `S.union` (freeVar f2)
--- freeVar (Forall x f) = S.delete x (freeVar f)
--- freeVar (Imply bds h) = S.unions (map freeVar bds) `S.union` freeVar h
+free = nub . freeVar 
+freeVar :: Exp -> [Name]
+freeVar (Var x) =  [x]
+freeVar (Const x) = []
+freeVar (Arrow f1 f2) = (freeVar f1) ++ (freeVar f2)
+freeVar (App f1 f2) = (freeVar f1) ++ (freeVar f2)
+freeVar (Forall x f) = delete x (freeVar f)
+freeVar (Imply b h) = freeVar b ++ freeVar h
 
 -- freeKVar :: Exp -> S.Set Name
 -- freeKVar Star = S.empty

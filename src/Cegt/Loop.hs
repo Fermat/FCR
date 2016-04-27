@@ -5,7 +5,7 @@ import Cegt.Rewrite
 import Data.List
 
 getList :: Trace -> [Name]
-getList (Trace ls) = map fst ls
+getList (Trace ls) = map (\(a,_,_)-> a) ls
 
 findCycle :: [Name] -> [Name] -> ([Name], [Name])
 findCycle [] pre = (pre, [])

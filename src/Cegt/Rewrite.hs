@@ -8,6 +8,7 @@ import Text.PrettyPrint
 import Control.Monad.State
 import Control.Monad.Reader
 
+type Subst = [(Name, Exp)]
 type Pos = [Int] -- a sequence of 0 and 1, 0 indicates first argument for App
 
 type RedTree = Tree (Pos, Name, Exp)
@@ -45,9 +46,9 @@ subterms (App t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
                           p <- ask
                           return ((p, (App t1 t2)):(l1++l2))
 
-data Trace = Trace [(Pos, Name, Exp)]
+data Trace = Trace [(Pos, Subst, Name, Exp)]
 instance Disp Trace where
-  disp (Trace ((_, _, e):decl)) = vcat (disp e : (map (\ (_, n, exp) -> text "-" <> disp n <> text "->" <+> disp exp) decl))
+  disp (Trace ((_, _, _, e):decl)) = vcat (disp e : (map (\ (_, _, n, exp) -> text "-" <> disp n <> text "->" <+> disp exp) decl))
 
 
 stepsInner :: [(Name, Exp)] -> Exp -> Int -> State Trace ()
@@ -107,7 +108,7 @@ firstMatch  x ((k, Arrow l r):ys) =
 allMatches :: Exp -> [(Name, Exp)] -> [(Name, Exp)]
 allMatches x env = [ (k, applyE s r)  | (k, Arrow l r) <- env, s <- match l x]
 
-type Subst = [(Name, Exp)]
+
 
 match (Var s) t1 = return [(s, t1)]
 match (App t1 t2) (App t1' t2') = do
@@ -118,7 +119,7 @@ match (Const s) (Const t) | s == t = return []
 match _ _ = mzero
 
 merge :: MonadPlus m => Subst -> Subst -> m Subst
-merge s1 s2 = if agree then return $ s1 ++ s2 else mzero
+merge s1 s2 = if agree then return $ nub (s1 ++ s2) else mzero
   where agree = all (\ x -> applyE s1 (Var x) == applyE s2 (Var x)) (map fst s1 `intersect` map fst s2) 
 
 
