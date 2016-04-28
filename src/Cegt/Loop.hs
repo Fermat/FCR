@@ -35,6 +35,7 @@ top e prefix = let pf = construct prefix
                (applyE [("`a", Var "d")] pf, ch)
 
 loop :: Exp ->  [(Pos, Subst, Name, Exp)] -> Maybe Exp
+loop ch [] = Nothing
 loop ch tr = let (_,_,_,e') = last tr
                  pf = construct tr 
                  cyc = [(p, s) | (p, t) <- getSubterms e', s <- match ch t]

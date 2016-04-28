@@ -117,7 +117,6 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                                         loop
                                (n1,e1):(n2,e2):[] -> do
                                  outputStrLn $ "the proof is:\n " ++ (show $ text n1 <+> text "=" <+>disp e1 $$ (text n2 <+> text "=" <+>disp e2))
-                --                 outputStrLn (show $ )
                                  loop
                 _ -> do outputStrLn $ "not enough argument for :loop "
                         loop
