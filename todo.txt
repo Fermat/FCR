@@ -3,7 +3,10 @@ do it good. [done.]
 
 2. Generating evidence for loops[done, but need to refine the loop pattern.].
 
-3. Device hereustic method for some non-loop/regular word of order 2. 
+-- 3. Device hereustic method for some non-loop/regular word of order 2. 
+
+3. Implement a very simple version of second order matching, and go for a more interactive style
+in order to handle the examples in the paper.
 
 ------------
 
