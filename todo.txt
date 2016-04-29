@@ -1,6 +1,9 @@
 1. Implement reduction tree? And display path? It can be very large and you better 
 do it good. [done.]
 
-2. Generating evidence for loops.
+2. Generating evidence for loops[done, but need to refine the loop pattern.].
 
 3. Device hereustic method for some non-loop/regular word of order 2. 
+
+------------
+
