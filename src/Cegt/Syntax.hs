@@ -13,6 +13,7 @@ type Name = String
 
 -- merge prog, kind, type into one syntactic category.
 data Exp = Var Name
+          | Star 
           | Const Name
           | App Exp Exp 
           | Lambda Name Exp 
@@ -21,6 +22,13 @@ data Exp = Var Name
           | Forall Name Exp
           deriving (Show, Eq, Ord)
 type Module = [(Name, Exp)] 
+
+
+data Tactic = Coind Name
+          | Intros [(Name, Exp)]
+          | Apply Name [Exp]
+          | Resolve Name
+          deriving (Show, Eq, Ord)
 
 free = nub . freeVar 
 freeVar :: Exp -> [Name]
