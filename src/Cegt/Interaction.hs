@@ -30,11 +30,13 @@ intros (gamma, pf, []) = (gamma, pf, [])
 intros (gamma, pf, (pos, goal):res) =
   let (vars, head, body) = separate goal
       goal' = head
-      num = length vars + length body
-      names = map (\ x -> "h"++show x) $ take num [1..]
+      lb = length body
+      num = length vars + lb
+      impNames = map (\ x -> "h"++show x) $ take lb [1..]
+      names = vars ++ impNames
       newLam = foldr (\ a b -> Lambda a b) head names
       pf' = replace pf pos newLam
-      newEnv = zip (drop (length vars) names) body
+      newEnv = zip impNames body
       pos' = pos ++ take num streamOne in (gamma++newEnv, pf', (pos',head):res)
 
 streamOne = 1:streamOne
