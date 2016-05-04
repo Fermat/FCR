@@ -21,6 +21,10 @@ quantify a@(Arrow t t') = ("p":(free a), Imply (App (Var "p") t') (App (Var "p")
 
 type ProofState = ([(Name, Exp)], Exp, [(Pos, Exp)])
 
+coind :: Name -> ProofState -> Maybe ProofState
+coind n (gamma, pf, ([], pf'):[]) | pf == pf' = Just (gamma++[(n,pf)], pf, ([], pf'):[])
+                                  | otherwise = Nothing
+
 intros :: ProofState -> Maybe ProofState
 intros (gamma, pf, []) = Just (gamma, pf, [])
 intros (gamma, pf, (pos, goal):res) =
