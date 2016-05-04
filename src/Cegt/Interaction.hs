@@ -21,8 +21,22 @@ quantify a@(Arrow t t') = ("p":(free a), Imply (App (Var "p") t') (App (Var "p")
 
 type ProofState = ([(Name, Exp)], Exp, [(Pos, Exp)])
 
+intros :: ProofState -> Maybe ProofState
+intros (gamma, pf, []) = Just (gamma, pf, [])
+intros (gamma, pf, (pos, goal):res) =
+  let (vars, head, body) = separate goal
+      goal' = head
+      num = length vars + length body
+      names = map (\ x -> "h"++show x) $ take num [1..]
+      newLam = foldr (\ a b -> Lambda a b) head names
+      pf' = replace pf pos newLam
+      newEnv = zip (drop (length vars) names) body
+      pos' = pos ++ take num streamOne in Just (gamma++newEnv, pf', (pos',head):res)
+
+streamOne = 1:streamOne
+
 apply :: ProofState -> Name -> [Exp] -> Maybe ProofState
-apply (gamma, pf, []) k ins = Nothing 
+apply (gamma, pf, []) k ins = Just (gamma, pf, [])
 apply (gamma, pf, (pos, goal):res) k ins = 
   case lookup k gamma of
     Nothing -> Nothing
