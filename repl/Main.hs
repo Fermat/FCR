@@ -1,6 +1,7 @@
 {-# LANGUAGE  ScopedTypeVariables, PatternGuards, StandaloneDeriving, DeriveDataTypeable #-}
 module Main where
 import Cegt.Parser
+import Cegt.Interaction
 import Cegt.Loop
 import Cegt.Rewrite
 import Cegt.Monad
@@ -23,9 +24,9 @@ import System.Console.Haskeline
 
 
 main :: IO ()
-main = evalStateT (runInputT defaultSettings loop) emptyEnv
+main = evalStateT (evalStateT (runInputT defaultSettings loop) emptyEnv) ([], Var "dummy", [])
   where
-    loop :: InputT (StateT Env IO) ()
+    loop :: InputT (StateT Env (StateT ([(Name, Exp)], Exp, [(Pos, Exp)]) IO)) ()
     loop = do
       minput <- getInputLine "cegt> "
       case minput of
@@ -120,7 +121,8 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                                  loop
                 _ -> do outputStrLn $ "not enough argument for :loop "
                         loop
-                        
+                   | Just rest <- stripPrefix ":iprover " input -> do prover
+                                                                      loop
                    | Just rest <- stripPrefix ":l " input ->
               do let filename:[] = words rest
                  lift (loadFile filename)
@@ -129,13 +131,71 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                                      loop
 
 
-loadFile :: FilePath -> (StateT Env IO) ()
-loadFile filename = do cnts <- lift (readFile filename)
+prover :: InputT (StateT Env (StateT ([(Name, Exp)], Exp, [(Pos, Exp)]) IO)) ()
+prover = do
+          minput <- getInputLine "> "
+          case minput of
+            Nothing -> return ()
+            Just input | Just rest <- stripPrefix "goal " input ->
+              case parseExp input of
+                    Left err -> do
+                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ input)))
+                      prover
+                    Right e -> do
+                      state <- (lift get)
+                      let
+                        gamma = (toFormula $ axioms state) ++ lemmas state
+                        init = (gamma, e, [([], e)])
+                      lift (lift $ put init)
+                      outputStrLn $ "set to prove goal: " ++ (show $ disp e)
+                      outputStrLn $ "in the environment: " ++ (show $ disp gamma)
+                      prover
+            Just input | Just rest <- stripPrefix "intros " input ->
+              do lift $ lift (modify intros)
+                 (new, pf, (_,newGoal):_) <- lift (lift get)
+                 outputStrLn $ "current goal: " ++ (show $ disp newGoal)
+                 outputStrLn $ "in the environment: " ++ (show $ disp new)
+                 prover
+            Just input | Just rest <- stripPrefix "coind " input ->
+              do s <- lift (lift get)
+                 case coind rest s of
+                   Nothing -> outputStrLn $ "coind tactic can only be used at the very beginning of the proof"
+                   Just s'@(ns, _, (_,g):_) ->
+                     do lift (lift (put s'))
+                        outputStrLn $ "current goal: " ++ (show $ disp g)
+                        outputStrLn $ "in the environment: " ++ (show $ disp ns)
+                        prover
+
+            Just input | Just rest <- stripPrefix "apply " input ->
+              case parseExps rest of
+                Left err -> do
+                      outputStrLn (show (disp err))
+                      prover
+                Right ((Var n):ins) -> do
+                  s <- lift (lift get)
+                  case apply s n ins of
+                    Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n)
+                                  prover
+                    Just s'@(gamma,pf,[]) ->
+                      do outputStrLn $ "QED with the proof: " ++ (show $ disp pf)
+                         outputStrLn $ "in the environment: " ++ (show $ disp gamma)
+                         prover
+                    Just s'@(gamma,pf,(_,g):_ ) ->
+                      do lift (lift (put s'))
+                         outputStrLn $ "current goal: " ++ (show $ disp g)
+                         outputStrLn $ "in the environment: " ++ (show $ disp gamma)
+                         prover
+
+                                  
+toFormula = undefined
+
+loadFile :: FilePath -> (StateT Env (StateT ([(Name, Exp)], Exp, [(Pos, Exp)]) IO)) ()
+loadFile filename = do cnts <- lift (lift (readFile filename))
                        case parseModule filename cnts of
-                         Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
+                         Left e ->  lift $ lift (print (disp e $$ text ("fail to load file "++filename)))
                          Right a -> do modify (\ s -> extendMod a s)
-                                       lift $ print (text ("loaded: "++filename))
-                                       lift $ print (disp a)
+                                       lift $ lift $ print (text ("loaded: "++filename))
+                                       lift $ lift $ print (disp a)
 
                            where extendMod [] s = s
                                  extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)

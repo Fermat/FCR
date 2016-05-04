@@ -25,8 +25,8 @@ coind :: Name -> ProofState -> Maybe ProofState
 coind n (gamma, pf, ([], pf'):[]) | pf == pf' = Just (gamma++[(n,pf)], pf, ([], pf'):[])
                                   | otherwise = Nothing
 
-intros :: ProofState -> Maybe ProofState
-intros (gamma, pf, []) = Just (gamma, pf, [])
+intros :: ProofState -> ProofState
+intros (gamma, pf, []) = (gamma, pf, [])
 intros (gamma, pf, (pos, goal):res) =
   let (vars, head, body) = separate goal
       goal' = head
@@ -35,7 +35,7 @@ intros (gamma, pf, (pos, goal):res) =
       newLam = foldr (\ a b -> Lambda a b) head names
       pf' = replace pf pos newLam
       newEnv = zip (drop (length vars) names) body
-      pos' = pos ++ take num streamOne in Just (gamma++newEnv, pf', (pos',head):res)
+      pos' = pos ++ take num streamOne in (gamma++newEnv, pf', (pos',head):res)
 
 streamOne = 1:streamOne
 

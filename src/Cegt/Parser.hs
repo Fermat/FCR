@@ -25,7 +25,10 @@ parseModule srcName cnts =
 
 parseExp :: String -> Either P.ParseError Exp
 parseExp s = runIndent [] $ runParserT (try (parens term) <|> term) () [] s
-  
+
+parseExps :: String -> Either P.ParseError [Exp]
+parseExps s = runIndent [] $ runParserT (many1 (try (parens term) <|> term)) () [] s
+
 type Parser a = IndentParser String () a
 
 -- deriving instance Typeable P.ParseError
