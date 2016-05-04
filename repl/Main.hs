@@ -186,6 +186,20 @@ prover = do
                              outputStrLn $ "current goal: " ++ (show $ disp g)
                              outputStrLn $ "in the environment: " ++ (show $ disp gamma)
                              prover
+                    ((Var n):ins) -> do 
+                      s <- lift (lift get)
+                      case apply s n ins of
+                        Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n)
+                                      prover
+                        Just s'@(gamma,pf,[]) ->
+                          do outputStrLn $ "QED with the proof:\n " ++ (show $ disp pf)
+                             outputStrLn $ "in the environment:\n " ++ (show $ disp gamma)
+                             prover
+                        Just s'@(gamma,pf,(_,g):_ ) ->
+                          do lift (lift (put s'))
+                             outputStrLn $ "current goal: " ++ (show $ disp g)
+                             outputStrLn $ "in the environment: " ++ (show $ disp gamma)
+                             prover         
                     a -> do  outputStrLn $ "wrong input: " ++ (show a)
                              prover
                   

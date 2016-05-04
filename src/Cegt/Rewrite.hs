@@ -28,6 +28,7 @@ replace :: Exp -> Pos -> Exp -> Exp
 replace e [] r = r
 replace (App t1 t2) (x:xs) r | x ==1 = App t1 (replace t2 xs r)
 replace (App t1 t2) (x:xs) r | x ==0 = App (replace t1 xs r) t2
+replace (Lambda y t2) (x:xs) r | x == 1 = Lambda y (replace t2 xs r) 
 
 getReductions :: Exp -> [(Name, Exp)] -> [((Pos, Exp), [(Name, Exp)])]
 getReductions x env = [((p, e), r) | (p, e) <- getSubterms x, let r = allMatches e env, r /= [] ]

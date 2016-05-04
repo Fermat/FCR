@@ -69,7 +69,7 @@ rule = do
   return $ Arrow t1 t2
   
 term :: Parser Exp
-term = lambda <|> compound 
+term = forall <|> lambda <|> compound 
 
 lambda = do
   reservedOp "\\"
@@ -77,7 +77,14 @@ lambda = do
   reservedOp "."
   p <- term
   return $ foldr (\ x y -> Lambda x y) p (map (\(Var x) -> x) as)
-  
+
+forall = do
+  reserved "forall"
+  as <- many1 var
+  reservedOp "."
+  p <- term
+  return $ foldr (\ x y -> Forall x y) p (map (\(Var x) -> x) as)
+
 compound = do
   n <- try var <|> con
   as <- compoundArgs
