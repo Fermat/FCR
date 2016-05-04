@@ -14,7 +14,7 @@ import Text.Parsec(ParseError)
 import System.Console.CmdArgs
 import Data.Typeable
 import Data.List
-import Data.Tree
+import Data.Tree hiding (flatten)
 import qualified Control.Exception as E
 import Control.Monad.State.Strict
 import System.Environment
@@ -32,6 +32,7 @@ main = evalStateT (evalStateT (runInputT defaultSettings loop) emptyEnv) ([], Va
       case minput of
         Nothing -> return ()
         Just ":q" -> return ()
+        Just ":iprover" -> prover >> loop
         Just input | Just rest <- stripPrefix ":outer " input ->
             do let l = words rest
                case l of
@@ -121,8 +122,6 @@ main = evalStateT (evalStateT (runInputT defaultSettings loop) emptyEnv) ([], Va
                                  loop
                 _ -> do outputStrLn $ "not enough argument for :loop "
                         loop
-                   | Just rest <- stripPrefix ":iprover " input -> do prover
-                                                                      loop
                    | Just rest <- stripPrefix ":l " input ->
               do let filename:[] = words rest
                  lift (loadFile filename)
@@ -137,7 +136,7 @@ prover = do
           case minput of
             Nothing -> return ()
             Just input | Just rest <- stripPrefix "goal " input ->
-              case parseExp input of
+              case parseExp rest of
                     Left err -> do
                       outputStrLn (show (disp err $$ text ("fail to parse expression "++ input)))
                       prover
@@ -148,13 +147,13 @@ prover = do
                         init = (gamma, e, [([], e)])
                       lift (lift $ put init)
                       outputStrLn $ "set to prove goal: " ++ (show $ disp e)
-                      outputStrLn $ "in the environment: " ++ (show $ disp gamma)
+                      outputStrLn $ "in the environment:\n" ++ (show $ disp gamma)
                       prover
-            Just input | Just rest <- stripPrefix "intros " input ->
+            Just input | Just rest <- stripPrefix "intros" input ->
               do lift $ lift (modify intros)
                  (new, pf, (_,newGoal):_) <- lift (lift get)
                  outputStrLn $ "current goal: " ++ (show $ disp newGoal)
-                 outputStrLn $ "in the environment: " ++ (show $ disp new)
+                 outputStrLn $ "in the environment:\n" ++ (show $ disp new)
                  prover
             Just input | Just rest <- stripPrefix "coind " input ->
               do s <- lift (lift get)
@@ -163,32 +162,33 @@ prover = do
                    Just s'@(ns, _, (_,g):_) ->
                      do lift (lift (put s'))
                         outputStrLn $ "current goal: " ++ (show $ disp g)
-                        outputStrLn $ "in the environment: " ++ (show $ disp ns)
+                        outputStrLn $ "in the environment:\n " ++ (show $ disp ns)
                         prover
 
             Just input | Just rest <- stripPrefix "apply " input ->
-              case parseExps rest of
+              case parseExp rest of
                 Left err -> do
                       outputStrLn (show (disp err))
                       prover
-                Right ((Var n):ins) -> do
-                  s <- lift (lift get)
-                  case apply s n ins of
-                    Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n)
-                                  prover
-                    Just s'@(gamma,pf,[]) ->
-                      do outputStrLn $ "QED with the proof: " ++ (show $ disp pf)
-                         outputStrLn $ "in the environment: " ++ (show $ disp gamma)
-                         prover
-                    Just s'@(gamma,pf,(_,g):_ ) ->
-                      do lift (lift (put s'))
-                         outputStrLn $ "current goal: " ++ (show $ disp g)
-                         outputStrLn $ "in the environment: " ++ (show $ disp gamma)
-                         prover
-
-                                  
-toFormula = undefined
-
+                Right big -> do
+                  case flatten big of
+                    ((Const n):ins) -> do 
+                      s <- lift (lift get)
+                      case apply s n ins of
+                        Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n)
+                                      prover
+                        Just s'@(gamma,pf,[]) ->
+                          do outputStrLn $ "QED with the proof:\n " ++ (show $ disp pf)
+                             outputStrLn $ "in the environment:\n " ++ (show $ disp gamma)
+                             prover
+                        Just s'@(gamma,pf,(_,g):_ ) ->
+                          do lift (lift (put s'))
+                             outputStrLn $ "current goal: " ++ (show $ disp g)
+                             outputStrLn $ "in the environment: " ++ (show $ disp gamma)
+                             prover
+                    a -> do  outputStrLn $ "wrong input: " ++ (show a)
+                             prover
+                  
 loadFile :: FilePath -> (StateT Env (StateT ([(Name, Exp)], Exp, [(Pos, Exp)]) IO)) ()
 loadFile filename = do cnts <- lift (lift (readFile filename))
                        case parseModule filename cnts of

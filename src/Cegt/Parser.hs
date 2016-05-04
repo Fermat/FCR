@@ -26,8 +26,8 @@ parseModule srcName cnts =
 parseExp :: String -> Either P.ParseError Exp
 parseExp s = runIndent [] $ runParserT (try (parens term) <|> term) () [] s
 
-parseExps :: String -> Either P.ParseError [Exp]
-parseExps s = runIndent [] $ runParserT (many1 (try (parens term) <|> term)) () [] s
+-- parseExps :: String -> Either P.ParseError [Exp]
+-- parseExps s = runIndent [] $ runParserT (many1 (try (parens term) <|> term)) () [] s
 
 type Parser a = IndentParser String () a
 
@@ -69,8 +69,15 @@ rule = do
   return $ Arrow t1 t2
   
 term :: Parser Exp
-term = compound 
+term = lambda <|> compound 
 
+lambda = do
+  reservedOp "\\"
+  as <- many1 var
+  reservedOp "."
+  p <- term
+  return $ foldr (\ x y -> Lambda x y) p (map (\(Var x) -> x) as)
+  
 compound = do
   n <- try var <|> con
   as <- compoundArgs

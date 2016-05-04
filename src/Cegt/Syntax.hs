@@ -23,6 +23,12 @@ data Exp = Var Name
           deriving (Show, Eq, Ord)
 type Module = [(Name, Exp)] 
 
+toFormula :: [(Name, Exp)] -> [(Name, Exp)]
+toFormula env = map (\(n,e)-> (n, helper e)) env
+   where helper a@(Arrow t t') =
+           let vars = "p" : free a in
+           foldr (\ z x -> Forall z x) (Imply (App (Var "p") t') (App (Var "p") t)) vars
+
 
 data Tactic = Coind Name
           | Intros [(Name, Exp)]
@@ -38,6 +44,10 @@ freeVar (Arrow f1 f2) = (freeVar f1) ++ (freeVar f2)
 freeVar (App f1 f2) = (freeVar f1) ++ (freeVar f2)
 freeVar (Forall x f) = delete x (freeVar f)
 freeVar (Imply b h) = freeVar b ++ freeVar h
+
+flatten :: Exp -> [Exp]
+flatten (App f1 f2) = flatten f1 ++ [f2]
+flatten a = [a]
 
 -- freeKVar :: Exp -> S.Set Name
 -- freeKVar Star = S.empty
@@ -175,8 +185,3 @@ freeVar (Imply b h) = freeVar b ++ freeVar h
 --   let fs = S.toList $ freeVar t in
 --   foldr (\ z x -> Forall z x) t fs
   
--- flatten :: Exp -> [Exp]
--- flatten (Pos _ f) = flatten f
--- flatten (Arrow f1 f2) = f1 : flatten f2
--- flatten (KArrow f1 f2) = f1 : flatten f2
--- flatten _ = []
