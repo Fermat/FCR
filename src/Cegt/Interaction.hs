@@ -27,15 +27,16 @@ coind :: Name -> ProofState -> Maybe ProofState
 coind n (gamma, pf, ([], pf'):[]) | pf == pf' = Just (gamma++[(n,pf)], pf, ([], pf'):[])
                                   | otherwise = Nothing
 
-intros :: ProofState -> ProofState
-intros (gamma, pf, []) = (gamma, pf, [])
-intros (gamma, pf, (pos, goal):res) =
+intros :: ProofState -> [Name] -> ProofState
+intros (gamma, pf, []) ns = (gamma, pf, [])
+intros (gamma, pf, (pos, goal):res) ns =
   let (vars, head, body) = separate goal
       goal' = head
       lb = length body
-      num = length vars + lb
-      impNames = map (\ x -> "h"++show x) $ take lb [1..]
-      names = vars ++ impNames
+      lv = length vars
+      num = lv + lb
+      impNames = drop lv ns -- map (\ x -> "h"++show x) $ take lb [1..]
+      names = ns -- vars ++ impNames
       newLam = foldr (\ a b -> Lambda a b) head names
       pf' = replace pf pos newLam
       newEnv = zip impNames body

@@ -149,8 +149,9 @@ prover = do
                       outputStrLn $ "set to prove goal: " ++ (show $ disp e)
                       outputStrLn $ "in the environment:\n" ++ (show $ disp gamma)
                       prover
-            Just input | Just rest <- stripPrefix "intros" input ->
-              do lift $ lift (modify intros)
+            Just input | Just rest <- stripPrefix "intros " input ->
+              do let a = words rest
+                 lift $ lift (modify (\ y -> intros y a))
                  (new, pf, (_,newGoal):_) <- lift (lift get)
                  outputStrLn $ "current goal: " ++ (show $ disp newGoal)
                  outputStrLn $ "in the environment:\n" ++ (show $ disp new)
