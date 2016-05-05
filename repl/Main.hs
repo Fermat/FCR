@@ -155,6 +155,7 @@ prover = do
                  (new, pf, (_,newGoal):_) <- lift (lift get)
                  outputStrLn $ "current goal: " ++ (show $ disp newGoal)
                  outputStrLn $ "in the environment:\n" ++ (show $ disp new)
+                 outputStrLn $ "current mix proof term: " ++ (show $ disp pf)
                  prover
             Just input | Just rest <- stripPrefix "coind " input ->
               do s <- lift (lift get)
@@ -186,6 +187,7 @@ prover = do
                           do lift (lift (put s'))
                              outputStrLn $ "current goal: " ++ (show $ disp g)
                              outputStrLn $ "in the environment: " ++ (show $ disp gamma)
+                             outputStrLn $ "current mix proof term: " ++ (show $ disp pf)
                              prover
                     ((Var n):ins) -> do 
                       s <- lift (lift get)
@@ -202,6 +204,8 @@ prover = do
                           do lift (lift (put s'))
                              outputStrLn $ "current goal: " ++ (show $ disp g)
                              outputStrLn $ "in the environment: " ++ (show $ disp gamma)
+                             outputStrLn $ "current mix proof term: " ++ (show $ disp pf)
+--                             outputStrLn $ show s'
                              prover         
                     a -> do  outputStrLn $ "wrong input: " ++ (show a)
                              prover

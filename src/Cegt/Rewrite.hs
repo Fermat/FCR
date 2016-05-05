@@ -154,3 +154,47 @@ applyE subs (Imply b h) =
   Imply a2 a1
         
 
+type GVar a = State Int a
+
+runSubst :: Exp -> Exp -> Exp -> Exp
+runSubst t x t1 = fst $ runState (subst t x t1) 0
+  
+subst :: Exp -> Exp -> Exp -> GVar Exp
+subst s (Var x) (Const y) = return $ Const y
+
+subst s (Var x) (Var y) =
+  if x == y then return s else return $ Var y
+                               
+subst s (Var x) (Imply f1 f2) = do
+  c1 <- subst s (Var x) f1
+  c2 <- subst s (Var x) f2
+  return $ Imply c1 c2
+
+subst s (Var x) (App f1 f2) = do
+  c1 <- subst s (Var x) f1
+  c2 <- subst s (Var x) f2
+  return $ App c1 c2
+
+subst s (Var x) (Forall a f) =
+  if x == a || not (x `elem` free f) then return $ Forall a f
+  else if not (a `elem` free s)
+       then do
+         c <- subst s (Var x) f
+         return $ Forall a c
+       else do
+         n <- get
+         modify (+1)
+         c1 <- subst (Var (a++ show n)) (Var a) f
+         subst s (Var x) (Forall (a ++ show n) c1)
+
+subst s (Var x) (Lambda a f) =
+  if x == a || not (x `elem` free f) then return $ Lambda a f
+  else if not (a `elem` free s)
+       then do
+         c <- subst s (Var x) f
+         return $ Lambda a c
+       else do
+         n <- get
+         modify (+1)
+         c1 <- subst (Var (a++ show n)) (Var a) f
+         subst s (Var x) (Lambda (a ++ show n) c1)         
