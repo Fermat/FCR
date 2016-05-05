@@ -188,6 +188,8 @@ prover = do
                              prover
                     ((Var n):ins) -> do 
                       s <- lift (lift get)
+                      -- outputStrLn $ (show ((Var n):ins))
+                      -- outputStrLn $ show s
                       case apply s n ins of
                         Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n)
                                       prover
@@ -202,7 +204,12 @@ prover = do
                              prover         
                     a -> do  outputStrLn $ "wrong input: " ++ (show a)
                              prover
-                  
+            Just input | Just rest <- stripPrefix "end" input -> return ()
+                             
+            Just input -> do
+              outputStrLn $ "unrecognized input "++ (show input)
+              prover
+
 loadFile :: FilePath -> (StateT Env (StateT ([(Name, Exp)], Exp, [(Pos, Exp)]) IO)) ()
 loadFile filename = do cnts <- lift (lift (readFile filename))
                        case parseModule filename cnts of

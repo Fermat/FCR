@@ -11,7 +11,9 @@ normalize (Lambda x t) = Lambda x (normalize t)
 normalize (App (Lambda x t') t) = applyE [(x, t)] t'
 normalize (App (Var x) t) = App (Var x) (normalize t)
 normalize (App (Const x) t) = App (Const x) (normalize t)
-normalize (App t' t) = normalize (App (normalize t') (normalize t))
+normalize (App t' t) = case (App (normalize t') (normalize t)) of
+                              a@(App (Lambda x t') t) -> normalize a
+                              b -> b
 normalize (Imply t t') = Imply (normalize t) (normalize t')
 normalize (Forall x t) = Forall x (normalize t)
 
@@ -58,6 +60,10 @@ apply (gamma, pf, (pos, goal):res) k ins =
                           ps = map (\ x -> pos++x++[1]) zeros
                           new = zip ps body'
                       in Just (gamma, pf', new++res)  
+
+test1 = apply gamma1 "h2" [Const "Z"]
+gamma1 = ([("h1",Forall "x" (Forall "y" (Imply (App (App (Var "d") (Var "x")) (App (Const "S") (Var "y"))) (App (App (Var "d") (App (Const "S") (Var "x"))) (Var "y"))))),("h2",Forall "y" (Imply (App (App (Var "d") (App (Const "S") (Var "y"))) (Const "Z")) (App (App (Var "d") (Const "Z")) (Var "y"))))],Lambda "d" (Lambda "h1" (Lambda "h2" (App (App (Var "d") (Const "Z")) (Const "Z")))),[([1,1,1],App (App (Var "d") (Const "Z")) (Const "Z"))])
+
 
 separate f = let (vars, imp) = getVars f
                  (bs, h) = getPre imp

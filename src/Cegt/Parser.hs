@@ -67,9 +67,21 @@ rule = do
   reserved "~>"
   t2 <- term
   return $ Arrow t1 t2
-  
+
 term :: Parser Exp
-term = forall <|> lambda <|> compound 
+term = buildExpressionParser typeOpTable base
+
+-- base :: Parser Exp
+-- base = try compound <|> try forall <|> parens ftype
+
+binOp :: Assoc -> String -> (a -> a -> a) -> Operator String u (State SourcePos) a
+binOp assoc op f = Infix (reservedOp op >> return f) assoc
+
+typeOpTable :: [[Operator String u (State SourcePos) Exp]]
+typeOpTable = [[binOp AssocRight "=>" Imply]]
+
+base :: Parser Exp
+base = forall <|> lambda <|> compound <|> parens term
 
 lambda = do
   reservedOp "\\"
