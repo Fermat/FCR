@@ -43,6 +43,7 @@ freeVar (Const x) = []
 freeVar (Arrow f1 f2) = (freeVar f1) ++ (freeVar f2)
 freeVar (App f1 f2) = (freeVar f1) ++ (freeVar f2)
 freeVar (Forall x f) = delete x (freeVar f)
+freeVar (Lambda x f) = delete x (freeVar f)
 freeVar (Imply b h) = freeVar b ++ freeVar h
 
 flatten :: Exp -> [Exp]

@@ -32,7 +32,7 @@ prover  = do
                              let init = (g, exp, [([], exp, gamma)])
                              lift $ put (exp, [], init)
                              outputStrLn $ "set to prove goal " ++ g ++ " : \n" ++ (show $ disp exp)
-                             outputStrLn $ "in the environment:\n" ++ (show $ gamma)
+                             outputStrLn $ "in the environment:\n" ++ (show $ disp gamma)
                              prover
                         _ -> do outputStrLn $ "wrong format for the tactic goal \n"
                                 prover
@@ -78,7 +78,8 @@ prover  = do
                     ((Const n):ins) -> do 
                       (gf, hist, s@(_,_,(_,_,gamma):_)) <- lift get
                       case apply s n ins of
-                        Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n)
+                        Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n) ++ show s
+                                      
                                       prover
                         Just s'@(gn,pf,[]) ->
                           do
