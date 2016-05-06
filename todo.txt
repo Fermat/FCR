@@ -1,12 +1,14 @@
-1. Implement reduction tree? And display path? It can be very large and you better 
+-- 1. Implement reduction tree? And display path? It can be very large and you better 
 do it good. [done.]
 
-2. Generating evidence for loops[done, but need to refine the loop pattern.].
+-- 2. Generating evidence for loops[done, but need to refine the loop pattern.].
 
 -- 3. Device hereustic method for some non-loop/regular word of order 2. 
 
-3. Implement a very simple version of second order matching, and go for a more interactive style
+--3. Implement a very simple version of second order matching, and go for a more interactive style
 in order to handle the examples in the paper.
 
 ------------
-
+1. Refine the local enviroment
+2. backtrack some steps? 
+3. Add finished proof as lemma to the environment
