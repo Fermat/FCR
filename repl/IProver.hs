@@ -28,16 +28,17 @@ prover  = do
                     Right e -> do
                       case flatten e of
                         (Var g):exp:[] -> 
-                          do (gamma, _, _) <- (lift get)
-                             let init = (gamma, g, exp, [([], exp)])
-                             lift $ put init
+                          do ([], (_, _, (_,_,gamma):_)) <- lift get
+                             let init = (g, exp, [([], exp, gamma)])
+                             lift $ put ([], init)
                              outputStrLn $ "set to prove goal " ++ g ++ " : \n" ++ (show $ disp exp)
                              outputStrLn $ "in the environment:\n" ++ (show $ gamma)
                              prover
-                        _ -> do outputStrLn $ "wrong arguments for the tactic goal \n"
+                        _ -> do outputStrLn $ "wrong format for the tactic goal \n"
                                 prover
             Just input | Just rest <- stripPrefix "intros " input ->
               do let a = words rest
+                 ([], (_, _, (_,_,gamma):_)) <- lift get
                  lift (modify (\ y -> intros y a))
                  (new, pf, (_,newGoal):_) <- lift get
                  outputStrLn $ "current goal: " ++ (show $ disp newGoal)

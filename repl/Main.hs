@@ -36,8 +36,11 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
         Just ":iprover" -> do
           env <- lift get
           let gamma = toFormula (axioms env) ++ lemmas env
-          lift $ lift $ evalStateT (runInputT defaultSettings prover) (gamma, Var "dummy", [])
-          loop
+          result <- lift $ lift $ evalStateT (runInputT defaultSettings prover)
+                    ([], ("dummy", Var "dummy", [([],Var "dummy" ,gamma)]))
+          case result of
+            Nothing -> loop
+            Just (n, p, f) -> lift (modify (extendLemma n p f)) >> loop
         Just input | Just rest <- stripPrefix ":outer " input ->
             do let l = words rest
                case l of
