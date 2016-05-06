@@ -122,7 +122,7 @@ merge :: MonadPlus m => Subst -> Subst -> m Subst
 merge s1 s2 = if agree then return $ nub (s1 ++ s2) else mzero
   where agree = all (\ x -> applyE s1 (Var x) == applyE s2 (Var x)) (map fst s1 `intersect` map fst s2) 
 
-
+{-
 applyE :: Subst -> Exp -> Exp
 applyE subs a@(Const x) = a
 applyE subs (Var x) =
@@ -153,8 +153,12 @@ applyE subs (Imply b h) =
       a2 = applyE subs b in
   Imply a2 a1
         
-
+-}
 type GVar a = State Int a
+
+applyE :: Subst -> Exp -> Exp
+applyE [] e = e
+applyE ((n,t):xs) e = applyE xs $ runSubst t (Var n) e
 
 runSubst :: Exp -> Exp -> Exp -> Exp
 runSubst t x t1 = fst $ runState (subst t x t1) 0

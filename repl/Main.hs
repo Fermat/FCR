@@ -34,8 +34,9 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
         Nothing -> return ()
         Just ":q" -> return ()
         Just ":iprover" -> do
-          env <- get
-          evalStateT prover (axioms env ++ lemmas env, Var "dummy", [])
+          env <- lift get
+          let gamma = toFormula (axioms env) ++ lemmas env
+          lift $ lift $ evalStateT (runInputT defaultSettings prover) (gamma, Var "dummy", [])
           loop
         Just input | Just rest <- stripPrefix ":outer " input ->
             do let l = words rest
@@ -135,13 +136,13 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
 
 
 
-loadFile :: FilePath -> (StateT Env (StateT ([(Name, Exp)], Exp, [(Pos, Exp)]) IO)) ()
-loadFile filename = do cnts <- lift (lift (readFile filename))
+loadFile :: FilePath -> (StateT Env IO) ()
+loadFile filename = do cnts <- lift (readFile filename)
                        case parseModule filename cnts of
-                         Left e ->  lift $ lift (print (disp e $$ text ("fail to load file "++filename)))
+                         Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
                          Right a -> do modify (\ s -> extendMod a s)
-                                       lift $ lift $ print (text ("loaded: "++filename))
-                                       lift $ lift $ print (disp a)
+                                       lift $ print (text ("loaded: "++filename))
+                                       lift $ print (disp a)
 
                            where extendMod [] s = s
                                  extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)

@@ -13,26 +13,29 @@ import Cegt.Interaction
 import Text.PrettyPrint
 import System.Console.Haskeline
 
+type History = [ProofState]
 
-prover :: InputT (StateT (ProofState) IO) ()
+prover :: InputT (StateT (History, ProofState) IO) (Maybe (Name, Exp, Exp))
 prover  = do
           minput <- getInputLine "> "
           case minput of
-            Nothing -> return ()
+            Nothing -> return Nothing
             Just input | Just rest <- stripPrefix "goal " input ->
               case parseExp rest of
                     Left err -> do
-                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ input)))
+                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ rest)))
                       prover
                     Right e -> do
-                      (gamma, _, _) <- (lift get)
-                      let
-                        -- gamma = (toFormula $ axioms env) ++ lemmas env
-                        init = (gamma, e, [([], e)])
-                      lift $ put init
-                      outputStrLn $ "set to prove goal: " ++ (show $ disp e)
-                      outputStrLn $ "in the environment:\n" ++ (show $ gamma)
-                      prover
+                      case flatten e of
+                        (Var g):exp:[] -> 
+                          do (gamma, _, _) <- (lift get)
+                             let init = (gamma, g, exp, [([], exp)])
+                             lift $ put init
+                             outputStrLn $ "set to prove goal " ++ g ++ " : \n" ++ (show $ disp exp)
+                             outputStrLn $ "in the environment:\n" ++ (show $ gamma)
+                             prover
+                        _ -> do outputStrLn $ "wrong arguments for the tactic goal \n"
+                                prover
             Just input | Just rest <- stripPrefix "intros " input ->
               do let a = words rest
                  lift (modify (\ y -> intros y a))
