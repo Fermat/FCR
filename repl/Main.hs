@@ -33,9 +33,13 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
       case minput of
         Nothing -> return ()
         Just ":q" -> return ()
+        Just ":env" -> do
+          env <- lift get
+          outputStrLn $ "the current environment:\n " ++ (show $ disp env)
+          loop
         Just ":iprover" -> do
           env <- lift get
-          let gamma = toFormula (axioms env) ++ map (\ (x,(_,y))-> (x,y)) (lemmas env)
+          let gamma = axioms env ++ map (\ (x,(_,y))-> (x,y)) (lemmas env)
           result <- lift $ lift $ evalStateT (runInputT defaultSettings prover)
                     (Var "dummy", [], ("dummy", Var "dummy", [([],Var "dummy" ,gamma)]))
           case result of
@@ -143,7 +147,7 @@ loadFile :: FilePath -> (StateT Env IO) ()
 loadFile filename = do cnts <- lift (readFile filename)
                        case parseModule filename cnts of
                          Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
-                         Right a -> do modify (\ s -> extendMod a s)
+                         Right a -> do modify (\ s -> extendMod (toFormula a) s)
                                        lift $ print (text ("loaded: "++filename))
                                        lift $ print (disp a)
 

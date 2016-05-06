@@ -85,7 +85,7 @@ prover  = do
                           do
                              lift $ put (gf, s:hist, s')
                              outputStrLn $ "QED with the proof:\n " ++ (show $ disp pf)
-                             outputStrLn $ "in the environment:\n " ++ (show $ disp gamma)
+                          --   outputStrLn $ "in the environment:\n " ++ (show $ disp gamma)
                              return $ Just (gn,pf,gf)
                         Just s'@(_,pf,(_,g,gamma):_ ) ->
                           do lift $ put (gf, s:hist, s')
@@ -102,7 +102,7 @@ prover  = do
                           do
                              lift $ put (gf, s:hist, s')
                              outputStrLn $ "QED with the proof:\n " ++ (show $ disp pf)
-                             outputStrLn $ "in the environment:\n " ++ (show $ disp gamma)
+--                             outputStrLn $ "in the environment:\n " ++ (show $ disp gamma)
                              return $ Just (gn,pf,gf)
                         Just s'@(_,pf,(_,g,gamma):_ ) ->
                           do lift $ put (gf, s:hist, s')

@@ -19,6 +19,10 @@ data Env = Env{axioms :: [(Name, Exp)],
               }
          deriving Show
 
+instance Disp Env where
+  disp (Env as lms) = (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) as)) $$
+                      (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms))
+  
 
 emptyEnv :: Env
 emptyEnv = Env {axioms = [], lemmas = []}
