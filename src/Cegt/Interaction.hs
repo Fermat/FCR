@@ -53,10 +53,15 @@ apply (gn, pf, (pos, goal, gamma):res) k ins =
   case lookup k gamma of
     Nothing -> Nothing
     Just f -> let (vars, head, body) = separate f
-                  sub = zip vars ins
-                  body' = map normalize $ (map (applyE sub) body)
-                  head' = normalize $ applyE sub head
-              in if head' /= goal then Nothing
+                  fresh = map (\ (v, i) -> v ++ show i ++ "fresh") $ zip vars [1..]
+                  renaming = zip vars (map Var fresh)
+                  sub = zip fresh ins
+                  body'' = map (applyE renaming) body
+                  head'' = applyE renaming head
+                  body' = map normalize $ (map (applyE sub) body'')
+                  head' = normalize $ applyE sub head''
+              in if head' /= goal then error $ "error apply" ++ show head' ++ "--" ++ show goal
+                                       ++ show sub ++ "--" ++ show head -- Nothing
                  else let np = ins++body'
                           name = case k of
                                    n:_ -> if isUpper n then Const k else Var k
@@ -85,6 +90,7 @@ makeZeros n | n > 0 = make n : makeZeros (n-1)
 stream = 0:stream
 make n | n > 0 = take (n-1) stream
 
+test1 = disp $ applyE [("x",App (Const "S") (Var "y")),("y",Const "Z")] (App (App (Var "d") (App (Const "S") (Var "x"))) (Var "y"))
 
 -- test1 = apply gamma1 "h2" [Const "Z"]
 -- gamma1 = ([("h1",Forall "x" (Forall "y" (Imply (App (App (Var "d") (Var "x")) (App (Const "S") (Var "y"))) (App (App (Var "d") (App (Const "S") (Var "x"))) (Var "y"))))),("h2",Forall "y" (Imply (App (App (Var "d") (App (Const "S") (Var "y"))) (Const "Z")) (App (App (Var "d") (Const "Z")) (Var "y"))))],Lambda "d" (Lambda "h1" (Lambda "h2" (App (App (Var "d") (Const "Z")) (Const "Z")))),[([1,1,1],App (App (Var "d") (Const "Z")) (Const "Z"))])
