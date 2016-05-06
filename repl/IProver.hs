@@ -45,6 +45,17 @@ prover  = do
                  outputStrLn $ "in the environment:\n" ++ (show $ disp new)
                  outputStrLn $ "current mix proof term: " ++ (show $ disp pf)
                  prover
+            Just "undo" ->
+              do (gf, hist, s) <- lift get
+                 case hist of
+                   [] -> do outputStrLn $ "cannot further undo"
+                            prover
+                   (h@(_,pf,(_,g,ns):_)):xs ->
+                     do lift (put (gf, xs, h))
+                        outputStrLn $ "current goal: " ++ (show $ disp g)
+                        outputStrLn $ "in the environment: " ++ (show $ disp ns)
+                        outputStrLn $ "current mix proof term: " ++ (show $ disp pf)
+                        prover
             Just "coind" ->
               do (gf, hist, s) <- lift get
                  case coind s of
