@@ -29,6 +29,7 @@ type ProofState = (Name, Exp, [(Pos, Exp, PfEnv)])
 coind :: ProofState -> Maybe ProofState
 coind (g, pf, ([], pf', env):[]) | pf == pf' = Just (g, pf, ([], pf', env++[(g,pf)]):[])
                                  | otherwise = Nothing
+coind _ = Nothing
 
 intros :: ProofState -> [Name] -> ProofState
 intros (gn, pf, []) ns = (gn, pf, [])
