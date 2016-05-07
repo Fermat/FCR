@@ -35,7 +35,7 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
         Just ":q" -> return ()
         Just ":env" -> do
           env <- lift get
-          outputStrLn $ "the current environment:\n " ++ (show $ disp env)
+          outputStrLn $ show (text "the current environment" $$ disp env)
           loop
         Just ":iprover" -> do
           env <- lift get
@@ -56,10 +56,10 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                     Right e -> 
                           do state <- lift get
                              let num = read n :: Int
-                                 res = getTrace (axioms state) e num
+                                 res = getTrace (rules state) e num
                              outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
                              loop
-                _ -> do outputStrLn $ "not enough argument for :outer "
+                _ -> do outputStrLn $ "not enough argument for :outer \n"
                         loop
         Just input | Just rest <- stripPrefix ":inner " input ->
             do let l = words rest
@@ -72,10 +72,10 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                     Right e -> 
                           do state <- lift get
                              let num = read n :: Int
-                                 res = getTrace' (axioms state) e num
+                                 res = getTrace' (rules state) e num
                              outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
                              loop
-                _ -> do outputStrLn $ "not enough argument for :inner "
+                _ -> do outputStrLn $ "not enough argument for :inner \n"
                         loop
         Just input | Just rest <- stripPrefix ":full " input ->
             do let l = words rest
@@ -88,7 +88,7 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                     Right e -> 
                           do state <- lift get
                              let num = read n :: Int
-                                 redTree = reduce (axioms state) ([], "_", e) num
+                                 redTree = reduce (rules state) ([], "_", e) num
                                  pTree = dispTree redTree
                              outputStrLn $ "the execution tree is:\n " ++ (drawTree pTree)
                              loop
@@ -105,12 +105,12 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                     Right e -> 
                           do state <- lift get
                              let num = read n :: Int
-                                 res = getTrace' (axioms state) e num
+                                 res = getTrace' (rules state) e num
                                  pf = partial res
-                             outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
-                             outputStrLn $ "the partial proof is:\n " ++ (show $ disp pf)
+                             outputStrLn $ show (text "the execution trace is:" $$ disp res)
+                             outputStrLn $ show (text "the partial proof is:" $$ disp pf)
                              loop
-                _ -> do outputStrLn $ "not enough argument for :partial "
+                _ -> do outputStrLn $ "not enough argument for :partial\n"
                         loop
         Just input | Just rest <- stripPrefix ":loop " input ->
             do let l = words rest
@@ -123,14 +123,14 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                     Right e -> 
                           do state <- lift get
                              let num = read n :: Int
-                                 res = getTrace' (axioms state) e num
+                                 res = getTrace' (rules state) e num
                                  pf = constrLoop res
                              outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
                              case pf of
                                [] -> do outputStrLn $ "fail to construct proof.\n "
                                         loop
                                (n1,e1):(n2,e2):[] -> do
-                                 outputStrLn $ "the proof is:\n " ++ (show $ text n1 <+> text "=" <+>disp e1 $$ (text n2 <+> text "=" <+>disp e2))
+                                 outputStrLn $ show (text "the proof is" $$ (text n1 <+> text "=" <+>disp e1 $$ (text n2 <+> text "=" <+>disp e2)))
                                  loop
                 _ -> do outputStrLn $ "not enough argument for :loop "
                         loop
@@ -148,10 +148,11 @@ loadFile filename = do cnts <- lift (readFile filename)
                        case parseModule filename cnts of
                          Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
                          Right a -> do modify (\ s -> extendMod (toFormula a) s)
+                                       modify (\ s -> extendR a s)
                                        lift $ print (text ("loaded: "++filename))
                                        lift $ print (disp a)
 
                            where extendMod [] s = s
                                  extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
-  
-
+                                 extendR [] s = s
+                                 extendR ((n, e):xs) s = extendR xs (extendRule n e s)

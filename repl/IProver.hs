@@ -31,8 +31,9 @@ prover  = do
                           do (_, [], (_, _, (_,_,gamma):_)) <- lift get
                              let init = (g, exp, [([], exp, gamma)])
                              lift $ put (exp, [], init)
-                             outputStrLn $ "set to prove goal " ++ g ++ " : \n" ++ (show $ disp exp)
-                             outputStrLn $ "in the environment:\n" ++ (show $ disp gamma)
+                             outputStrLn $
+                               show (text "set to prove goal"<+> text g <+>text ":" <+> disp exp)
+                             outputStrLn $ show (text "in the environment:" $$ disp gamma)
                              prover
                         _ -> do outputStrLn $ "wrong format for the tactic goal \n"
                                 prover
@@ -41,9 +42,9 @@ prover  = do
                  (gf, hist, st1) <- lift get
                  let st2@(_, pf, (_,newGoal, new):_) = intros st1 a
                  lift (put (gf, st1:hist, st2))
-                 outputStrLn $ "current goal: " ++ (show $ disp newGoal)
-                 outputStrLn $ "in the environment:\n" ++ (show $ disp new)
-                 outputStrLn $ "current mix proof term: " ++ (show $ disp pf)
+                 outputStrLn $ show (text "current goal:" $$ disp newGoal)
+                 outputStrLn $ show (text "in the environment:" $$ disp new)
+                 outputStrLn $ show (text "current mix proof term:" $$ disp pf)
                  prover
             Just "undo" ->
               do (gf, hist, s) <- lift get
@@ -52,9 +53,9 @@ prover  = do
                             prover
                    (h@(_,pf,(_,g,ns):_)):xs ->
                      do lift (put (gf, xs, h))
-                        outputStrLn $ "current goal: " ++ (show $ disp g)
-                        outputStrLn $ "in the environment: " ++ (show $ disp ns)
-                        outputStrLn $ "current mix proof term: " ++ (show $ disp pf)
+                        outputStrLn $ show (text "current goal:" $$ disp g)
+                        outputStrLn $ show (text "in the environment:" $$ disp ns)
+                        outputStrLn $ show (text "current mix proof term:" $$ disp pf)
                         prover
             Just "coind" ->
               do (gf, hist, s) <- lift get
@@ -64,8 +65,8 @@ prover  = do
                         prover
                    Just s'@(_, _, (_,g,ns):_) ->
                      do lift $ put (gf, s:hist, s')
-                        outputStrLn $ "current goal: " ++ (show $ disp g)
-                        outputStrLn $ "in the environment:\n " ++ (show $ disp ns)
+                        outputStrLn $ show (text "current goal:" $$ disp g)
+                        outputStrLn $ show (text "in the environment:" $$ disp ns)
                         prover
 
             Just input | Just rest <- stripPrefix "apply " input ->
@@ -78,20 +79,19 @@ prover  = do
                     ((Const n):ins) -> do 
                       (gf, hist, s@(_,_,(_,_,gamma):_)) <- lift get
                       case apply s n ins of
-                        Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n) ++ show s
-                                      
+                        Nothing -> do outputStrLn $
+                                        show ((text "fail to apply rule:" <+> text n))
                                       prover
                         Just s'@(gn,pf,[]) ->
                           do
                              lift $ put (gf, s:hist, s')
-                             outputStrLn $ "QED with the proof:\n " ++ (show $ disp pf)
-                          --   outputStrLn $ "in the environment:\n " ++ (show $ disp gamma)
+                             outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
                              return $ Just (gn,pf,gf)
                         Just s'@(_,pf,(_,g,gamma):_ ) ->
                           do lift $ put (gf, s:hist, s')
-                             outputStrLn $ "current goal: " ++ (show $ disp g)
-                             outputStrLn $ "in the environment: " ++ (show $ disp gamma)
-                             outputStrLn $ "current mix proof term: " ++ (show $ disp pf)
+                             outputStrLn $ show (text "current goal:" $$ disp g)
+                             outputStrLn $ show (text "in the environment:" $$ disp gamma)
+                             outputStrLn $ show (text "current mix proof term:" $$ disp pf)
                              prover
                     ((Var n):ins) -> do
                       (gf, hist, s@(_,_,(_,_,gamma):_)) <- lift get
@@ -101,14 +101,13 @@ prover  = do
                         Just s'@(gn,pf,[]) ->
                           do
                              lift $ put (gf, s:hist, s')
-                             outputStrLn $ "QED with the proof:\n " ++ (show $ disp pf)
---                             outputStrLn $ "in the environment:\n " ++ (show $ disp gamma)
+                             outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
                              return $ Just (gn,pf,gf)
                         Just s'@(_,pf,(_,g,gamma):_ ) ->
                           do lift $ put (gf, s:hist, s')
-                             outputStrLn $ "current goal: " ++ (show $ disp g)
-                             outputStrLn $ "in the environment: " ++ (show $ disp gamma)
-                             outputStrLn $ "current mix proof term: " ++ (show $ disp pf)
+                             outputStrLn $ show (text "current goal:" $$ disp g)
+                             outputStrLn $ show (text "in the environment:" $$ disp gamma)
+                             outputStrLn $ show (text "current mix proof term:" $$ disp pf)
                              prover
                     a -> do  outputStrLn $ "wrong input: " ++ (show a)
                              prover
