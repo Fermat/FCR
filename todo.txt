@@ -9,6 +9,13 @@ do it good. [done.]
 in order to handle the examples in the paper.
 
 ------------
-1. Refine the local enviroment
-2. backtrack some steps? 
-3. Add finished proof as lemma to the environment
+-- 1. Refine the local enviroment
+-- 2. backtrack some steps? 
+-- 3. Add finished proof as lemma to the environment
+------------------
+1. smart apply
+2. smart intros
+3. script mode for easy testing? a programmable tactic language. enable programmable search
+strategy. 
+4. smart higher order matching. 
+5. proof checker. 
