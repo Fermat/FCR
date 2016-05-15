@@ -45,7 +45,7 @@ ruleDecl :: Parser (Name, Exp)
 ruleDecl = do
   (Const c) <- con 
   reservedOp ":"
-  t <- rule
+  t <- term
   return $ (c, t)
   
 var :: Parser Exp
@@ -78,10 +78,10 @@ binOp :: Assoc -> String -> (a -> a -> a) -> Operator String u (State SourcePos)
 binOp assoc op f = Infix (reservedOp op >> return f) assoc
 
 typeOpTable :: [[Operator String u (State SourcePos) Exp]]
-typeOpTable = [[binOp AssocRight "=>" Imply]]
+typeOpTable = [[binOp AssocRight "=>" Imply, binOp AssocRight "~>" Arrow]]
 
 base :: Parser Exp
-base = forall <|> lambda <|> compound <|> parens term
+base = forall <|> lambda <|> try compound <|> try (parens term)
 
 lambda = do
   reservedOp "\\"
@@ -98,7 +98,7 @@ forall = do
   return $ foldr (\ x y -> Forall x y) p (map (\(Var x) -> x) as)
 
 compound = do
-  n <- try var <|> con
+  n <- try var <|> con <|> parens term 
   as <- compoundArgs
   if null as then return n
     else return $ foldl' (\ z x -> App z x) n as 
