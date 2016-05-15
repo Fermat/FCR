@@ -138,6 +138,7 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                         loop
                    | Just rest <- stripPrefix ":l " input ->
               do let filename:[] = words rest
+                 lift (put emptyEnv)
                  lift (loadFile filename)
                  loop
                    | otherwise -> do outputStrLn $ "Unrecognize input : " ++ input
