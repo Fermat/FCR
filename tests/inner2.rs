@@ -11,4 +11,6 @@ intros f x z a1 a2 a3
 apply a3 (\ y. f (S x) y) x z  -- f (S x) (J z)
 apply a1 (\ y . y) (S x) (J z) -- f (S (S x)) (G (H (S x) z))
 apply h (\ x y . f (S x) y) x (S z) -- 
+use a1 with 
+use a2 with 
 qed
