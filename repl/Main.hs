@@ -36,6 +36,7 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
         Just ":env" -> do
           env <- lift get
           outputStrLn $ show (text "the current environment" $$ disp env)
+--          outputStrLn $ show (rules env)
           loop
         Just ":iprover" -> do
           env <- lift get

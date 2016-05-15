@@ -47,7 +47,7 @@ subterms (App t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
                           p <- ask
                           return ((p, (App t1 t2)):(l1++l2))
 
-data Trace = Trace [(Pos, Subst, Name, Exp)]
+data Trace = Trace [(Pos, Subst, Name, Exp)] deriving Show
 instance Disp Trace where
   disp (Trace ((_, _, _, e):decl)) = vcat (disp e : (map (\ (_, _, n, exp) -> text "-" <> disp n <> text "->" <+> disp exp) decl))
 
@@ -63,8 +63,8 @@ stepsInner env e n | n > 0 = case stepInner env e of
 stepInner :: [(Name, Exp)] -> Exp -> (Maybe (Pos, Subst, Name, Exp))
 stepInner env e = case e of
                     App a b ->
-                      case (step env a) of
-                        Nothing -> case step env b of
+                      case (stepInner env a) of
+                        Nothing -> case stepInner env b of
                                       Nothing -> case firstMatch e env of
                                                    Just (k, e', s) -> Just ([], s, k, e')
                                                    _ -> Nothing
