@@ -151,8 +151,10 @@ loadFile filename = do cnts <- lift (readFile filename)
                        case parseModule filename cnts of
                          Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
                          Right a -> do let bindings = decls a
+                                           pfs = prfs a
                                        modify (\ s -> extendMod (toFormula bindings) s)
                                        modify (\ s -> extendR bindings s)
+                                       interpret pfs
                                        lift $ print (text ("loaded: "++filename))
                                        lift $ print (disp a)
 
