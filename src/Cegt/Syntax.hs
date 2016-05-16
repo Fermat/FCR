@@ -1,13 +1,12 @@
 module Cegt.Syntax where
 
--- import Control.Monad.State.Lazy
--- import Control.Monad.Reader
+import Control.Monad.State.Lazy
+import Control.Monad.Reader
 
 import Data.Char
 import qualified Data.Set as S
 import Data.List hiding (partition)
-import Text.Parsec
-import Text.Parsec.Pos
+
 
 type Name = String
 
@@ -21,6 +20,15 @@ data Exp = Var Name
           | Arrow Exp Exp
           | Forall Name Exp
           deriving (Show, Eq, Ord)
+
+data Nameless = V Int
+              | C Name
+              | IMP Nameless Nameless
+              | ALL Nameless
+              | AP Nameless Nameless
+              | LAM Nameless
+             deriving (Show, Eq)
+                   
 type Module = [(Name, Exp)] 
 
 toFormula :: [(Name, Exp)] -> [(Name, Exp)]
@@ -50,139 +58,93 @@ flatten :: Exp -> [Exp]
 flatten (App f1 f2) = flatten f1 ++ [f2]
 flatten a = [a]
 
--- freeKVar :: Exp -> S.Set Name
--- freeKVar Star = S.empty
--- freeKVar (KVar x) = S.insert x S.empty
--- freeKVar (KArrow f1 f2) = (freeKVar f1) `S.union` (freeKVar f2)
+
+type BindCxt a = Reader [(Name, Int)] a
+
+debruijn :: Exp -> BindCxt Nameless
+debruijn (Const x) = return $ C x
+debruijn (Var x) = do 
+  Just n <- asks (lookup x) 
+  return $ V n
+
+debruijn (Forall x f) = do 
+  a <- local (((x,0):) . plus1) $ debruijn f 
+  return $ ALL a
+  
+debruijn (Imply f1 f2) = do
+  a1 <- debruijn f1
+  a2 <- debruijn f2
+  return $ IMP a1 a2
+
+debruijn (App b1 b2) = do
+  a <- debruijn b1
+  a1 <- debruijn b2
+  return $ AP a a1
+
+debruijn (Lambda x f) = do
+  a <- local (((x,0):) . plus1) $ debruijn f 
+  return $ LAM a
+
+plus1 = map $ \(x, y) -> (x, y + 1)
 
 
--- note that this is a naive version of getting
--- free variable, since fv  will consider data
--- type constructors and program definitions as
--- free variables. So one would need to aware
--- of this when using fv.
--- type Subst = [(Name, Exp)]        
+alphaEq :: Exp -> Exp -> Bool
+alphaEq t1 t2 =
+    let t1' = foldl' (\t x -> Forall x t) t1 (free t1)
+        t2' = foldl' (\t x -> Forall x t) t2 (free t1) in
+    runReader (debruijn t1') [] == runReader (debruijn t2') []
 
--- fv :: Exp -> S.Set Name
--- fv (Con x) = S.empty
--- fv (EVar x) = S.insert x S.empty
--- fv (App f1 f2) = fv f1 `S.union` fv f2
--- fv (Lambda x s) = S.delete x (fv s)
--- fv (Let bs p) =
---   let binds = S.fromList $ map fst bs
---       tvars = S.unions $ map fv $ map snd bs
---       pvar = fv p in
---   S.difference (S.union pvar tvars) binds
 
--- fv (Match p cases) =
---   S.unions (map fvCase cases) `S.union` fv p
---     where fvCase (c, params, t) =
---             S.difference (fv t) (S.fromList params)
-            
--- fv (Pos _ t) = fv t
 
--- -- applyQ currently only used at freshInst
+type GVar a = State Int a
 
--- applyQ :: Subst -> QType -> QType
--- applyQ subs (DArrow fs f) =
---   let fs' = map (applyE subs) fs
---       f' = applyE subs f in
---   DArrow fs' f'
-      
--- applyE :: Subst -> Exp -> Exp
--- applyE subs a@(Con x) = a
--- applyE subs (EVar x) =
---   case lookup x subs of
---     Just x1 -> x1
---     Nothing -> EVar x
+type Subst = [(Name, Exp)]
 
--- applyE subs (Arrow f1 f2) =
---   let a1 = applyE subs f1
---       a2 = applyE subs f2 in
---   Arrow a1 a2
+applyE :: Subst -> Exp -> Exp
+applyE [] e = e
+applyE ((n,t):xs) e = applyE xs $ runSubst t (Var n) e
 
--- applyE subs (Forall y f) =
---  let subs' = filter (\(x, _) -> not (x == y)) subs in
---  Forall y (applyE subs' f)
+runSubst :: Exp -> Exp -> Exp -> Exp
+runSubst t x t1 = fst $ runState (subst t x t1) 0
+  
+subst :: Exp -> Exp -> Exp -> GVar Exp
+subst s (Var x) (Const y) = return $ Const y
 
--- applyE subs (FApp f1 f2) =
---   let a1 = applyE subs f1
---       a2 = applyE subs f2 in
---   FApp a1 a2
+subst s (Var x) (Var y) =
+  if x == y then return s else return $ Var y
+                               
+subst s (Var x) (Imply f1 f2) = do
+  c1 <- subst s (Var x) f1
+  c2 <- subst s (Var x) f2
+  return $ Imply c1 c2
 
--- applyE subs (Imply bs h) =
---   let a1 = applyE subs h
---       a2 = map (applyE subs) bs in
---   Imply a2 a1
-        
--- -- substituting term
--- applyE subs (App a b) = App (applyE subs a) (applyE subs b)
+subst s (Var x) (App f1 f2) = do
+  c1 <- subst s (Var x) f1
+  c2 <- subst s (Var x) f2
+  return $ App c1 c2
 
--- applyE subs (Lambda x p) = Lambda x (applyE subs p)
+subst s (Var x) (Forall a f) =
+  if x == a || not (x `elem` free f) then return $ Forall a f
+  else if not (a `elem` free s)
+       then do
+         c <- subst s (Var x) f
+         return $ Forall a c
+       else do
+         n <- get
+         modify (+1)
+         c1 <- subst (Var (a++ show n)) (Var a) f
+         subst s (Var x) (Forall (a ++ show n) c1)
 
--- applyE subs (Match p branches) =
---   Match (applyE subs p) $ map (helper subs) branches
---   where helper subs (c, xs, p) = (c, xs, applyE subs p)
+subst s (Var x) (Lambda a f) =
+  if x == a || not (x `elem` free f) then return $ Lambda a f
+  else if not (a `elem` free s)
+       then do
+         c <- subst s (Var x) f
+         return $ Lambda a c
+       else do
+         n <- get
+         modify (+1)
+         c1 <- subst (Var (a++ show n)) (Var a) f
+         subst s (Var x) (Lambda (a ++ show n) c1)         
 
--- applyE subs (Let xs p) =
---   Let (map (helper subs) xs) (applyE subs p)
---   where helper subs (x, def) = (x, applyE subs def)
-
--- applyE subs (Pos _ p) = applyE subs p
-
--- firstline (Inst a xs) = Inst a [head xs]
-
--- apply :: Exp -> Name -> Exp -> Exp
--- apply a x (Con t) = Con t
--- apply a x (EVar t) = if x == t then a else (EVar t)
--- apply a x (App t1 t2) = App (apply a x t1) (apply a x t2)
--- apply a x t1@(Lambda y t) =
---   if x == y then t1
---   else Lambda y (apply a x t)
--- apply a x (Match t branches) = Match (apply a x t) $ map (helper a x) branches
---  where helper b y (c, args, p) = if y `elem` args then (c, args, p) else (c, args, apply b y p)
--- apply a x (Let branches p) =
---   let binds = map fst branches in
---   if x `elem` binds then (Let branches p)
---   else Let (map (\ (e,d) -> (e, apply a x d)) branches) (apply a x p)
--- apply a x t1@(Forall y t) =
---   if x == y then t1
---   else Forall y (apply a x t)
-
--- apply a x (FApp p1 p2) = FApp (apply a x p1) (apply a x p2)
--- apply a x (Imply bds h) = Imply (map (apply a x) bds) (apply a x h)
--- apply a x (Pos _ p) = apply a x p       
-
--- applyK :: [(Name, Exp)] -> Exp -> Exp
--- applyK _ Star = Star
-
--- applyK subs (KVar x) =
---   case lookup x subs of
---     Just x1 -> x1
---     Nothing -> KVar x
-
--- applyK subs (KArrow f1 f2) =
---   let a1 = applyK subs f1
---       a2 = applyK subs f2 in
---   KArrow a1 a2
-
--- flatApp (Pos _ p) = flatApp p
--- flatApp (App t1 t2) = flatApp t1 ++ [t2]
--- flatApp (FApp t1 t2) = flatApp t1 ++ [t2]
--- flatApp t = [t]
-
--- makeName name = do
---   m <- get
---   modify (+1)
---   return $ name ++ show m
-
--- inst (Forall x t) = do
---    newVar <- makeName "x"
---    t' <- inst t
---    return $ apply (EVar newVar) x t'
--- inst a = return a   
-
--- quantify t =
---   let fs = S.toList $ freeVar t in
---   foldr (\ z x -> Forall z x) t fs
   

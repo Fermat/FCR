@@ -8,7 +8,7 @@ import Text.PrettyPrint
 import Control.Monad.State
 import Control.Monad.Reader
 
-type Subst = [(Name, Exp)]
+
 type Pos = [Int] -- a sequence of 0 and 1, 0 indicates first argument for App
 
 type RedTree = Tree (Pos, Name, Exp)
@@ -122,83 +122,3 @@ merge :: MonadPlus m => Subst -> Subst -> m Subst
 merge s1 s2 = if agree then return $ nub (s1 ++ s2) else mzero
   where agree = all (\ x -> applyE s1 (Var x) == applyE s2 (Var x)) (map fst s1 `intersect` map fst s2) 
 
-{-
-applyE :: Subst -> Exp -> Exp
-applyE subs a@(Const x) = a
-applyE subs (Var x) =
-  case lookup x subs of
-    Just x1 -> x1
-    Nothing -> Var x
-
-applyE subs (Arrow f1 f2) =
-  let a1 = applyE subs f1
-      a2 = applyE subs f2 in
-  Arrow a1 a2
-
-applyE subs (Forall y f) =
- let subs' = filter (\(x, _) -> not (x == y)) subs in
- Forall y (applyE subs' f)
-
-applyE subs (Lambda y f) =
- let subs' = filter (\(x, _) -> not (x == y)) subs in
- Lambda y (applyE subs' f)
-
-applyE subs (App f1 f2) =
-  let a1 = applyE subs f1
-      a2 = applyE subs f2 in
-  App a1 a2
-
-applyE subs (Imply b h) =
-  let a1 = applyE subs h
-      a2 = applyE subs b in
-  Imply a2 a1
-        
--}
-type GVar a = State Int a
-
-applyE :: Subst -> Exp -> Exp
-applyE [] e = e
-applyE ((n,t):xs) e = applyE xs $ runSubst t (Var n) e
-
-runSubst :: Exp -> Exp -> Exp -> Exp
-runSubst t x t1 = fst $ runState (subst t x t1) 0
-  
-subst :: Exp -> Exp -> Exp -> GVar Exp
-subst s (Var x) (Const y) = return $ Const y
-
-subst s (Var x) (Var y) =
-  if x == y then return s else return $ Var y
-                               
-subst s (Var x) (Imply f1 f2) = do
-  c1 <- subst s (Var x) f1
-  c2 <- subst s (Var x) f2
-  return $ Imply c1 c2
-
-subst s (Var x) (App f1 f2) = do
-  c1 <- subst s (Var x) f1
-  c2 <- subst s (Var x) f2
-  return $ App c1 c2
-
-subst s (Var x) (Forall a f) =
-  if x == a || not (x `elem` free f) then return $ Forall a f
-  else if not (a `elem` free s)
-       then do
-         c <- subst s (Var x) f
-         return $ Forall a c
-       else do
-         n <- get
-         modify (+1)
-         c1 <- subst (Var (a++ show n)) (Var a) f
-         subst s (Var x) (Forall (a ++ show n) c1)
-
-subst s (Var x) (Lambda a f) =
-  if x == a || not (x `elem` free f) then return $ Lambda a f
-  else if not (a `elem` free s)
-       then do
-         c <- subst s (Var x) f
-         return $ Lambda a c
-       else do
-         n <- get
-         modify (+1)
-         c1 <- subst (Var (a++ show n)) (Var a) f
-         subst s (Var x) (Lambda (a ++ show n) c1)         
