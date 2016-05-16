@@ -28,21 +28,22 @@ data Nameless = V Int
               | AP Nameless Nameless
               | LAM Nameless
              deriving (Show, Eq)
-                   
-type Module = [(Name, Exp)] 
 
+data Tactic = Apply Name [Exp]
+            | Coind
+            | Use Name [Exp]
+            | Intros [Name]
+            deriving (Show)
+                     
+data Module = Mod {decls :: [(Name, Exp)] , prfs :: [((Name, Exp), [Tactic])]}
+            deriving (Show)
+                     
 toFormula :: [(Name, Exp)] -> [(Name, Exp)]
 toFormula env = map (\(n,e)-> (n, helper e)) env
    where helper a@(Arrow t t') =
            let vars = "p" : free a in
            foldr (\ z x -> Forall z x) (Imply (App (Var "p") t') (App (Var "p") t)) vars
 
-
-data Tactic = Coind Name
-          | Intros [(Name, Exp)]
-          | Apply Name [Exp]
-          | Resolve Name
-          deriving (Show, Eq, Ord)
 
 free = nub . freeVar 
 freeVar :: Exp -> [Name]

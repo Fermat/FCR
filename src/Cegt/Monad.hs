@@ -16,7 +16,8 @@ import Text.Parsec.Pos
 
 data Env = Env{axioms :: [(Name, Exp)],
                lemmas :: [(Name, (Exp, Exp))], -- (name, (proof, formula))
-               rules :: [(Name, Exp)]
+               rules :: [(Name, Exp)],
+               tacs :: [(Name, Exp), [Tactic]]
               }
          deriving Show
 

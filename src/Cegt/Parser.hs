@@ -38,8 +38,43 @@ type Parser a = IndentParser String () a
 gModule :: Parser Module
 gModule = do
   bs <- many ruleDecl
+  qs <- many proof
   eof
-  return $ bs
+  return $ Mod bs qs
+
+proof :: Parser ((Name, Exp), [Tactic])
+proof = do
+  reserved "lemma"
+  n <- identifier
+  reservedOp ":"
+  t <- term
+  reserved "proof"
+  ts <- many tactic
+  reserved "qed"
+  return ((n, t), ts)
+
+tactic :: Parser Tactic
+tactic = tacIntros <|> tacApply <|> tacUse <|> tacCoind
+
+tacIntros = do
+  reserved "intros"
+  ns <- many1 identifier
+  return $ Intros ns
+
+tacCoind = reserved "coind" >> return Coind
+
+tacUse = do
+  reserved "use"
+  n <- identifier
+  ts <- many term
+  return $ Use n ts
+
+tacApply = do
+  reserved "apply"
+  n <- identifier
+  ts <- many term
+  return $ Apply n ts
+
 
 ruleDecl :: Parser (Name, Exp)
 ruleDecl = do
@@ -133,7 +168,7 @@ gottlobStyle = Token.LanguageDef
                 , Token.reservedNames =
                   [
                     "forall", "iota", "reduce", 
-                    "cmp","invcmp", "inst", "mp", "discharge", "ug", "beta", "invbeta",
+                    "coind","use", "intros", "apply", 
                     "by", "from", "in", "let", "simpCmp", "invSimp",
                     "case", "of",
                     "data", "if", "then", "else",

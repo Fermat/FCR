@@ -150,8 +150,9 @@ loadFile :: FilePath -> (StateT Env IO) ()
 loadFile filename = do cnts <- lift (readFile filename)
                        case parseModule filename cnts of
                          Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
-                         Right a -> do modify (\ s -> extendMod (toFormula a) s)
-                                       modify (\ s -> extendR a s)
+                         Right a -> do let bindings = decls a
+                                       modify (\ s -> extendMod (toFormula bindings) s)
+                                       modify (\ s -> extendR bindings s)
                                        lift $ print (text ("loaded: "++filename))
                                        lift $ print (disp a)
 

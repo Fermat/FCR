@@ -85,7 +85,7 @@ use (gn, pf, (pos, goal, gamma):res) k ins =
                   renaming = zip vars (map Var fresh)
                   sub = zip fresh ins
                   b'' = applyE renaming bare
-                  b' =  normalize $ applyE sub b''
+                  b' = normalize $ applyE sub b''
                   f' = foldl' (\t x -> Forall x t) b' (free b')
               in if f' `alphaEq` goal then
                    let name = case k of

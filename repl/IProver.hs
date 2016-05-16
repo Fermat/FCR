@@ -35,8 +35,8 @@ prover  = do
                                show (text "set to prove goal"<+> text g <+>text ":" <+> disp exp)
                              outputStrLn $ show (text "in the environment:" $$ disp gamma)
                              prover
-                        _ -> do outputStrLn $ "wrong format for the tactic goal \n"
-                                prover
+                        other -> do outputStrLn $ "wrong format for the tactic goal \n" ++ show other
+                                    prover
             Just input | Just rest <- stripPrefix "intros " input ->
               do let a = words rest
                  (gf, hist, st1) <- lift get
@@ -112,6 +112,48 @@ prover  = do
                     a -> do  outputStrLn $ "wrong input: " ++ (show a)
                              prover
             Just input | Just rest <- stripPrefix "end" input -> return Nothing
+            Just input | Just rest <- stripPrefix "use " input ->
+              case parseExp rest of
+                Left err -> do
+                      outputStrLn (show (disp err))
+                      prover
+                Right big -> do
+                  case flatten big of
+                    ((Const n):ins) -> do 
+                      (gf, hist, s@(_,_,(_,_,gamma):_)) <- lift get
+                      case use s n ins of
+                        Nothing -> do outputStrLn $
+                                        show ((text "fail to use rule:" <+> text n))
+                                      prover
+                        Just s'@(gn,pf,[]) ->
+                          do
+                             lift $ put (gf, s:hist, s')
+                             outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
+                             return $ Just (gn,pf,gf)
+                        Just s'@(_,pf,(_,g,gamma):_ ) ->
+                          do lift $ put (gf, s:hist, s')
+                             outputStrLn $ show (text "current goal:" $$ disp g)
+                             outputStrLn $ show (text "in the environment:" $$ disp gamma)
+                             outputStrLn $ show (text "current mix proof term:" $$ disp pf)
+                             prover
+                    ((Var n):ins) -> do
+                      (gf, hist, s@(_,_,(_,_,gamma):_)) <- lift get
+                      case use s n ins of
+                        Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n)
+                                      prover
+                        Just s'@(gn,pf,[]) ->
+                          do
+                             lift $ put (gf, s:hist, s')
+                             outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
+                             return $ Just (gn,pf,gf)
+                        Just s'@(_,pf,(_,g,gamma):_ ) ->
+                          do lift $ put (gf, s:hist, s')
+                             outputStrLn $ show (text "current goal:" $$ disp g)
+                             outputStrLn $ show (text "in the environment:" $$ disp gamma)
+                             outputStrLn $ show (text "current mix proof term:" $$ disp pf)
+                             prover
+                    a -> do  outputStrLn $ "wrong input: " ++ (show a)
+                             prover
 
                              
             Just input -> do
