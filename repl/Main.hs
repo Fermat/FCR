@@ -155,7 +155,9 @@ loadFile filename = do cnts <- lift (readFile filename)
                                        modify (\ s -> extendMod (toFormula bindings) s)
                                        modify (\ s -> extendR bindings s)
                                        modify (\ s -> extendTacs pfs s)
+--                                       lift (print (show pfs))
                                        env <- get
+                                       
                                        case interpret env pfs of
                                          Right res -> do
                                            modify (\ s -> extendLms res s)

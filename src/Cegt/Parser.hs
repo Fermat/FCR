@@ -66,14 +66,14 @@ tacCoind = reserved "coind" >> return Coind
 tacUse = do
   reserved "use"
   n <- identifier
-  ts <- many term
-  return $ Use n ts
+  ts <- term
+  return $ Use n (flatten ts)
 
 tacApply = do
   reserved "apply"
   n <- identifier
-  ts <- many term
-  return $ Apply n ts
+  ts <- term
+  return $ Apply n (flatten ts)
 
 
 ruleDecl :: Parser (Name, Exp)

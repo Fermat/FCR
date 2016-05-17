@@ -63,8 +63,8 @@ instance Disp Exp where
 
 instance Disp Tactic where
   disp (Intros xs) = text "intros" <+> (hcat $ map text xs)
-  disp (Use n ns) = text "use" <+> disp n <+> (hcat $ map disp ns)
-  disp (Apply n ns) = text "apply" <+> disp n <+> (hcat $ map disp ns)
+  disp (Use n ns) = text "use" <+> disp n <+> (hsep $ map (\ y -> parens $ disp y) ns)
+  disp (Apply n ns) = text "apply" <+> disp n <+> (hsep $ map (\ y -> parens $ disp y) ns)
   disp Coind = text "coind"
 
 instance Disp [(Name, Exp)] where

@@ -26,7 +26,8 @@ prfConstr :: [Tactic] -> StateT ProofState (Either Doc) (Name, Exp)
 prfConstr [] = do ps <- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
                   case ps of
                     (n, pf, []) -> return (n, pf)
-                    (n, pf, (_,g,_):as) -> fail' $ text "unfinished goal" <+> disp g
+                    (n, pf, (_,g,gamma):as) -> fail' $ text "unfinished goal" <+> disp g $$
+                                           text "in the environment" $$ disp gamma
 prfConstr (Coind:xs) = do ps@(n,_,_) <- get
                           case coind ps of
                             Nothing -> fail' $
@@ -38,20 +39,21 @@ prfConstr ((Intros ns):xs) = do ps <- get
                                 put $ intros ps ns 
                                 prfConstr xs
 
-prfConstr ((Apply n ts):xs) = do ps@(n,_,_) <- get
+prfConstr ((Apply n ts):xs) = do ps@(ln,_,_) <- get
                                  case apply ps n ts of
                                    Nothing -> fail' $
                                               text "fail to use the tactic: apply"
                                               <+> disp n <+> hcat (map disp ts) $$
-                                              text "in the proof of lemma" <+> disp n
+                                              text "in the proof of lemma" <+> disp ln
+                                             -- <+> text (show ps)
                                    Just ps' -> put ps' >> prfConstr xs
 
-prfConstr ((Use n ts):xs) = do ps@(n,_,_) <- get
+prfConstr ((Use n ts):xs) = do ps@(ln,_,_) <- get
                                case apply ps n ts of
                                    Nothing -> fail' $
                                               text "fail to use the tactic: use"
                                               <+> disp n <+> hcat (map disp ts)
-                                              $$ text "in the proof of lemma" <+> disp n
+                                              $$ text "in the proof of lemma" <+> disp ln
                                    Just ps' -> put ps' >> prfConstr xs
 
 
