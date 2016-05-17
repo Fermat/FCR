@@ -70,6 +70,9 @@ stepInner env e = case e of
                                                    _ -> Nothing
                                       Just (p, s, n, b') -> Just (1:p, s, n, App a b')
                         Just (p, s, n, a') -> Just (0:p, s, n, App a' b)
+                    Const a -> case firstMatch e env of
+                                  Just (k, e', s) -> Just ([], s, k, e')
+                                  _ -> Nothing
                     _ -> Nothing
 
 
