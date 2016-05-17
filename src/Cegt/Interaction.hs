@@ -1,5 +1,6 @@
 module Cegt.Interaction where
 import Cegt.Syntax
+import Cegt.Monad
 import Cegt.PrettyPrinting
 import Cegt.Rewrite
 import Data.List
@@ -8,6 +9,16 @@ import Data.Char
 import Control.Monad.State
 import Text.PrettyPrint
 
+interpret :: Env -> [((Name, Exp), [Tactic])] -> Either Doc [(Name, (Exp, Exp))]
+interpret env pfs = do res <- mapM (lemmaConstr env) pfs
+                       let as = map (\ ((n, exp),bs) -> (n, exp)) pfs
+                           re = zipWith (\ (n1,p1) (n2, ex2) -> (n1, (p1, ex2))) res as
+                       return re   
+                        
+lemmaConstr :: Env -> ((Name, Exp), [Tactic]) -> Either Doc (Name, Exp)
+lemmaConstr env ((n, g), ts) =
+  let gamma = axioms env ++ map (\ (x,(_,y))-> (x,y)) (lemmas env) in
+  evalStateT (prfConstr ts) (n, g, [([], g, gamma)])  
 
 fail' x = fail $ show x
 

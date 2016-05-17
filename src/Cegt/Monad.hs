@@ -42,3 +42,6 @@ extendLemma v pf t e@(Env {lemmas}) = e{lemmas = (v, (pf, t)):lemmas}
 
 extendRule :: Name -> Exp -> Env -> Env
 extendRule v ts e@(Env {rules}) = e{rules =  (v , ts) : rules}
+
+extendTac :: Name -> Exp -> [Tactic] -> Env -> Env
+extendTac v es ts e@(Env {tacs}) = e{tacs =  ((v, es), ts) : tacs}

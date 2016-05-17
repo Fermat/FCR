@@ -146,7 +146,7 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
 
 
 
-loadFile :: FilePath -> (StateT Env IO) ()
+loadFile :: FilePath -> StateT Env IO ()
 loadFile filename = do cnts <- lift (readFile filename)
                        case parseModule filename cnts of
                          Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
@@ -154,11 +154,25 @@ loadFile filename = do cnts <- lift (readFile filename)
                                            pfs = prfs a
                                        modify (\ s -> extendMod (toFormula bindings) s)
                                        modify (\ s -> extendR bindings s)
-                                       interpret pfs
-                                       lift $ print (text ("loaded: "++filename))
-                                       lift $ print (disp a)
+                                       modify (\ s -> extendTacs pfs s)
+                                       env <- get
+                                       case interpret env pfs of
+                                         Right res -> do
+                                           modify (\ s -> extendLms res s)
+                                           lift $ print (text ("loaded: "++filename))
+                                           env' <- get
+                                           lift $ print (disp env')
+                                         Left err ->
+                                           lift (print (disp err $$
+                                                        text ("fail to load file "++filename)))
 
                            where extendMod [] s = s
                                  extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
                                  extendR [] s = s
                                  extendR ((n, e):xs) s = extendR xs (extendRule n e s)
+                                 extendTacs [] s = s
+                                 extendTacs (((n, e), ts):xs) s = extendTacs xs
+                                                                  (extendTac n e ts s)
+                                 extendLms [] s = s
+                                 extendLms ((n, (p, e)):xs) s = extendLms xs
+                                                                  (extendLemma n p e s)
