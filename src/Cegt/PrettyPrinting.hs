@@ -61,6 +61,11 @@ instance Disp Exp where
   precedence (App _ _) = 10
   precedence _ = 0
 
+instance Disp Tactic where
+  disp (Intros xs) = text "intros" <+> (hcat $ map text xs)
+  disp (Use n ns) = text "use" <+> disp n <+> (hcat $ map disp ns)
+  disp (Apply n ns) = text "apply" <+> disp n <+> (hcat $ map disp ns)
+  disp Coind = text "coind"
 
 instance Disp [(Name, Exp)] where
   disp decl = vcat (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) decl)

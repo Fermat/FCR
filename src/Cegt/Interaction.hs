@@ -5,6 +5,48 @@ import Cegt.Rewrite
 import Data.List
 import Data.Char
 
+import Control.Monad.State
+import Text.PrettyPrint
+
+
+fail' x = fail $ show x
+
+prfConstr :: [Tactic] -> StateT ProofState (Either Doc) (Name, Exp)
+prfConstr [] = do ps <- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
+                  case ps of
+                    (n, pf, []) -> return (n, pf)
+                    (n, pf, (_,g,_):as) -> fail' $ text "unfinished goal" <+> disp g
+prfConstr (Coind:xs) = do ps@(n,_,_) <- get
+                          case coind ps of
+                            Nothing -> fail' $
+                                       text "fail to use coind tactic, in the proof of lemma"
+                                       <+> disp n
+                            Just ps' -> put ps' >> prfConstr xs
+                                           
+prfConstr ((Intros ns):xs) = do ps <- get
+                                put $ intros ps ns 
+                                prfConstr xs
+
+prfConstr ((Apply n ts):xs) = do ps@(n,_,_) <- get
+                                 case apply ps n ts of
+                                   Nothing -> fail' $
+                                              text "fail to use the tactic: apply"
+                                              <+> disp n <+> hcat (map disp ts) $$
+                                              text "in the proof of lemma" <+> disp n
+                                   Just ps' -> put ps' >> prfConstr xs
+
+prfConstr ((Use n ts):xs) = do ps@(n,_,_) <- get
+                               case apply ps n ts of
+                                   Nothing -> fail' $
+                                              text "fail to use the tactic: use"
+                                              <+> disp n <+> hcat (map disp ts)
+                                              $$ text "in the proof of lemma" <+> disp n
+                                   Just ps' -> put ps' >> prfConstr xs
+
+
+                            
+
+
 normalize :: Exp -> Exp
 normalize (Var a) = Var a
 -- normalize Star = Star
