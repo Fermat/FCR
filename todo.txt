@@ -19,3 +19,12 @@ in order to handle the examples in the paper.
 strategy. 
 4. smart higher order matching. 
 5. proof checker. 
+
+----------------------------
+1. Proof checker.
+2. UI.
+3. Checking algebraic property.
+
+
+
+

@@ -48,12 +48,13 @@ prfConstr ((Apply n ts):xs) = do ps@(ln,_,_) <- get
                                              -- <+> text (show ps)
                                    Just ps' -> put ps' >> prfConstr xs
 
-prfConstr ((Use n ts):xs) = do ps@(ln,_,_) <- get
-                               case apply ps n ts of
+prfConstr ((Use n ts):xs) = do ps@(ln,_,(_,cg,_):_) <- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
+                               case use ps n ts of
                                    Nothing -> fail' $
                                               text "fail to use the tactic: use"
                                               <+> disp n <+> hcat (map disp ts)
                                               $$ text "in the proof of lemma" <+> disp ln
+                                              $$ text "current goal:" <+> disp cg
                                    Just ps' -> put ps' >> prfConstr xs
 
 
@@ -141,15 +142,18 @@ use (gn, pf, (pos, goal, gamma):res) k ins =
                   sub = zip fresh ins
                   b'' = applyE renaming bare
                   b' = normalize $ applyE sub b''
-                  f' = foldl' (\t x -> Forall x t) b' (free b')
-              in if f' `alphaEq` goal then
+                  newVar = permutations $ free b'
+                  fs' = [  f1  | vs <- newVar, let f1 = foldl' (\t x -> Forall x t) b' vs,
+                             f1 `alphaEq` goal]
+              in if null fs' then Nothing
+                 else 
                    let name = case k of
                                    n:_ -> if isUpper n then Const k else Var k
-                                   a -> error "unknow error from apply"
+                                   a -> error "unknow error from use"
                        contm = foldl' (\ z x -> App z x) name ins
                        pf' = replace pf pos contm
                    in Just (gn, pf', res)  
-                 else Nothing
+
                    
                    
 
@@ -169,6 +173,7 @@ makeZeros 0 = []
 makeZeros n | n > 0 = make n : makeZeros (n-1)
 stream = 0:stream
 make n | n > 0 = take (n-1) stream
+
 
 
 

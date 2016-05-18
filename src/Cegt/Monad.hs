@@ -24,10 +24,12 @@ data Env = Env{axioms :: [(Name, Exp)],
 instance Disp Env where
   disp (Env as lms rs ts) = text "axioms" $$
                          (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) as)) $$ 
-                         text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms)) $$ text "rewrite rules" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) rs)) $$ text "textual lemma" $$
-                         (vcat (map
-                                (\ ((n, exp),pfs) ->
-                                  (disp n <+> text ":" <+> disp exp) $$ (vcat (map disp pfs))) ts))
+                         text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms)) $$ text "rewrite rules" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) rs)) 
+                         -- $$ text "textual lemma" $$
+                         -- (vcat (map
+                         --        (\ ((n, exp),pfs) ->
+                         --          (disp n <+> text ":" <+> disp exp) $$ (vcat (map disp pfs)))
+                         --        ts))
                       
   
 
