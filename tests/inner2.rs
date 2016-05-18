@@ -15,4 +15,5 @@ apply a1 p (S x) y -- p (f (S (S x)) (G (H (S x) z)))
 apply a2 (\ y . p (f (S (S x)) (G y))) x z -- p (f (S (S x)) (G (H x (S z))))
 apply b1
 use a2
+use a3
 qed
