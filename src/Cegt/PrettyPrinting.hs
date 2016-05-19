@@ -31,6 +31,18 @@ dParen level x =
    then parens $ disp x 
    else disp x
 
+instance Disp Kind where
+  disp (KVar x) = disp x
+  disp Star = text "*"
+  disp Formula = text "o"
+  disp (a@(KArrow t1 t2)) =
+    dParen (precedence a) t1
+    <+> text "=>"
+    <+> dParen (precedence a - 1) t2
+
+  precedence (KArrow _ _) = 4
+  precedence (KVar _) = 12
+
 instance Disp Exp where
   disp (Const x) = disp x
   disp (Var x) = disp x

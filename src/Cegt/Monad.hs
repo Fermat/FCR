@@ -17,12 +17,13 @@ import Text.Parsec.Pos
 data Env = Env{axioms :: [(Name, Exp)],
                lemmas :: [(Name, (Exp, Exp))], -- (name, (proof, formula))
                rules :: [(Name, Exp)],
-               tacs :: [((Name, Exp), [Tactic])]
+               tacs :: [((Name, Exp), [Tactic])],
+               kinds ::[(Name, Kind)]
               }
          deriving Show
 
 instance Disp Env where
-  disp (Env as lms rs ts) = text "axioms" $$
+  disp (Env as lms rs ts ks) = text "axioms" $$
                          (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) as)) $$ 
                          text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms)) $$ text "rewrite rules" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) rs)) 
                          -- $$ text "textual lemma" $$
@@ -34,7 +35,7 @@ instance Disp Env where
   
 
 emptyEnv :: Env
-emptyEnv = Env {axioms = [], lemmas = [], rules = [], tacs = []}
+emptyEnv = Env {axioms = [], lemmas = [], rules = [], tacs = [], kinds = []}
                   
 extendAxiom :: Name -> Exp -> Env -> Env
 extendAxiom v ts e@(Env {axioms}) = e{axioms =  (v , ts) : axioms}

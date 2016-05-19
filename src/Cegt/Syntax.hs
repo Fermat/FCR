@@ -12,7 +12,6 @@ type Name = String
 
 -- merge prog, kind, type into one syntactic category.
 data Exp = Var Name
-          | Star 
           | Const Name
           | App Exp Exp 
           | Lambda Name Exp 
@@ -21,6 +20,12 @@ data Exp = Var Name
           | Forall Name Exp
           deriving (Show, Eq, Ord)
 
+data Kind = Formula
+          | Star
+          | KVar Name
+          | KArrow Kind Kind
+          deriving (Show, Eq)
+                     
 data Nameless = V Int
               | C Name
               | IMP Nameless Nameless
@@ -54,6 +59,11 @@ freeVar (App f1 f2) = (freeVar f1) ++ (freeVar f2)
 freeVar (Forall x f) = delete x (freeVar f)
 freeVar (Lambda x f) = delete x (freeVar f)
 freeVar (Imply b h) = freeVar b ++ freeVar h
+
+freeKVar :: Kind -> S.Set Name
+freeKVar Star = S.empty
+freeKVar (KVar x) = S.insert x S.empty
+freeKVar (KArrow f1 f2) = (freeKVar f1) `S.union` (freeKVar f2)
 
 flatten :: Exp -> [Exp]
 flatten (App f1 f2) = flatten f1 ++ [f2]
