@@ -97,6 +97,7 @@ inferKind (Forall x f) = do
 isForm (Imply x y) = True
 isForm (Forall x y) = True
 isForm (App _ _) = False
+isForm _ = False
 
 isTerm (Star) = True
 isTerm (KArrow Star t) = isTerm t

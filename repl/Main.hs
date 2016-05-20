@@ -153,9 +153,11 @@ loadFile filename = do cnts <- lift (readFile filename)
                          Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
                          Right a -> do let bindings = decls a
                                            pfs = prfs a
+                                           ks = constKinds bindings
                                        modify (\ s -> extendMod (toFormula bindings) s)
                                        modify (\ s -> extendR bindings s)
                                        modify (\ s -> extendTacs pfs s)
+                                       modify (\ s -> addKinds ks s)
 --                                       lift (print (show pfs))
                                        env <- get
                                        

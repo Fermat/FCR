@@ -9,10 +9,10 @@ import Control.Monad.State
 import Control.Monad.Except
 import Control.Exception
 import qualified Data.Map as M
-import Control.Applicative hiding (empty)
+-- import Control.Applicative hiding (empty)
 import Control.Monad.Reader
 import Text.Parsec.Pos
-
+import Data.List
 
 data Env = Env{axioms :: [(Name, Exp)],
                lemmas :: [(Name, (Exp, Exp))], -- (name, (proof, formula))
@@ -22,10 +22,28 @@ data Env = Env{axioms :: [(Name, Exp)],
               }
          deriving Show
 
+constKinds :: [(Name, Exp)] -> [(Name, Kind)]
+constKinds rules =
+  let res = concat $ map (\ (_, Arrow t1 t2) -> getKinds t1 ++ getKinds t2) rules
+  in nub $ res
+getKinds :: Exp -> [(Name, Kind)]
+getKinds t = case flatten t of
+                (Const x):xs -> let arity = length xs
+                                    k = aToKind arity in
+                                (x, k):(concat $ map getKinds xs)
+                (Var x):xs -> concat $ map getKinds xs
+                _ -> error "impossible happens in getKinds function"
+                                    
+
+aToKind :: Int -> Kind
+aToKind n | n == 0 = Star
+           | n > 0 = KArrow Star (aToKind (n-1))
+                     
 instance Disp Env where
   disp (Env as lms rs ts ks) = text "axioms" $$
                          (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) as)) $$ 
-                         text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms)) $$ text "rewrite rules" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) rs)) 
+                         text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms)) $$ text "rewrite rules" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) rs)) $$
+                         text "kinds" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) ks)) 
                          -- $$ text "textual lemma" $$
                          -- (vcat (map
                          --        (\ ((n, exp),pfs) ->
@@ -48,3 +66,6 @@ extendRule v ts e@(Env {rules}) = e{rules =  (v , ts) : rules}
 
 extendTac :: Name -> Exp -> [Tactic] -> Env -> Env
 extendTac v es ts e@(Env {tacs}) = e{tacs =  ((v, es), ts) : tacs}
+
+addKinds :: [(Name, Kind)] -> Env -> Env
+addKinds ks e@(Env {kinds}) = e{kinds = ks}

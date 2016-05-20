@@ -42,6 +42,7 @@ instance Disp Kind where
 
   precedence (KArrow _ _) = 4
   precedence (KVar _) = 12
+  precedence (_) = 12
 
 instance Disp Exp where
   disp (Const x) = disp x
