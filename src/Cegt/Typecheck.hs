@@ -6,7 +6,6 @@ import Cegt.PrettyPrinting
 import Text.PrettyPrint
 import Control.Monad.State.Lazy
 import Control.Monad.Reader
-
 import Data.Char
 import qualified Data.Set as S
 import Data.List hiding (partition)
@@ -32,7 +31,7 @@ inferKind (Const x) = do
   genv <- ask
   case lookup x genv of
     Just k -> return k
-    Nothing -> fail $ "Kinding error " ++ show (text "undefine type constructor:" <+> disp x)
+    Nothing -> lift $ lift $ lift $ Left $ text "Kinding error: " <+> text "undefine type constructor:" <+> disp x
   
 inferKind (Var x) = do
   env <- lift get
@@ -57,13 +56,13 @@ inferKind (Lambda x t) = do
   let vars = free t
       l = intersect vars [x]
   case l of
-    a:b:_ -> fail $ "multiple use of variable " ++ show x 
+    a:b:_ -> lift $ lift $ lift $ Left $ text "multiple use of variable " <+> text x 
     a:[] -> do k <- inferKind t
                let k' = ground k
                case isTerm k' of
                  True -> return $ KArrow Star k
-                 False -> fail $ "the body " ++ show (disp t) ++ " is ill-kind"
-    [] -> fail $ "no use of variable " ++ show x
+                 False -> lift $ lift $ lift $ Left $ text "the body " <+> (disp t) <+> text " is ill-kind"
+    [] -> lift $ lift $ lift $ Left $ text "no use of variable " <+> text x
       
 inferKind (Imply f1 f2) = do
   k1 <- inferKind f1
@@ -127,13 +126,13 @@ unifyK Star Star = return []
 
 unifyK Formula Formula = return []
 
-unifyK t t' = fail $ "Unification failure during Kinding: "
-              ++ show (text "trying to unify" <+> disp t <+> text "with" <+> disp t')
+unifyK t t' = lift $ lift $ lift $ Left $ text "Unification failure during Kinding: "
+              <+> text "trying to unify" <+> disp t <+> text "with" <+> disp t'
 
 varBindK x t | t == KVar x = return []
              | x `S.member` freeKVar t =
-                fail $ "Occur-Check failure during Kinding: "
-                ++ show (text "trying to unify" <+> disp x <+> text "with" <+> disp t)
+               lift $ lift $ lift $ Left $ text "Occur-Check failure during Kinding: "
+                <+> text "trying to unify" <+> disp x <+> text "with" <+> disp t
              | otherwise = return [(x, t)]
 
 unificationK :: Kind -> Kind -> KCMonad ()

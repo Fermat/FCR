@@ -18,45 +18,53 @@ interpret env pfs = do res <- mapM (lemmaConstr env) pfs
                         
 lemmaConstr :: Env -> ((Name, Exp), [Tactic]) -> Either Doc (Name, Exp)
 lemmaConstr env ((n, g), ts) =
-  let gamma = axioms env ++ map (\ (x,(_,y))-> (x,y)) (lemmas env) in
-  evalStateT (prfConstr ts) (n, g, [([], g, gamma)])  
+  let gamma = axioms env ++ map (\ (x,(_,y))-> (x,y)) (lemmas env)
+      ks = kinds env
+  in
+  evalStateT (prfConstr ts) ((n, g, [([], g, gamma)]), ks)
 
-fail' x = fail $ show x
-
-prfConstr :: [Tactic] -> StateT ProofState (Either Doc) (Name, Exp)
-prfConstr [] = do ps <- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
+prfConstr :: [Tactic] -> StateT (ProofState, [(Name, Kind)]) (Either Doc) (Name, Exp)
+prfConstr [] = do (ps, _) <- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
                   case ps of
                     (n, pf, []) -> return (n, pf)
-                    (n, pf, (_,g,gamma):as) -> fail' $ text "unfinished goal" <+> disp g $$
+                    (n, pf, (_,g,gamma):as) -> lift $ Left $ text "unfinished goal" <+> disp g $$
                                            text "in the environment" $$ disp gamma
-prfConstr (Coind:xs) = do ps@(n,_,_) <- get
+prfConstr (Coind:xs) = do (ps@(n,_,_), ks) <- get
                           case coind ps of
-                            Nothing -> fail' $
+                            Nothing -> lift $ Left $
                                        text "fail to use coind tactic, in the proof of lemma"
                                        <+> disp n
-                            Just ps' -> put ps' >> prfConstr xs
+                            Just ps' -> put (ps', ks) >> prfConstr xs
                                            
-prfConstr ((Intros ns):xs) = do ps <- get
-                                put $ intros ps ns 
+prfConstr ((Intros ns):xs) = do (ps, ks) <- get
+                                put (intros ps ns, ks)
                                 prfConstr xs
 
-prfConstr ((Apply n ts):xs) = do ps@(ln,_,_) <- get
-                                 case apply ps n ts of
-                                   Nothing -> fail' $
-                                              text "fail to use the tactic: apply"
-                                              <+> disp n <+> hcat (map disp ts) $$
-                                              text "in the proof of lemma" <+> disp ln
+prfConstr ((Apply n ts):xs) = do (ps@(ln,_,_), ks) <- get
+                                 case kindList ts ks of
+                                   Left err -> do lift $ Left $
+                                                    (text "kinding error:" $$ disp err)
+                                   Right _ ->  
+                                     case apply ps n ts of
+                                       Nothing -> lift $ Left $
+                                                  text "fail to use the tactic: apply"
+                                                  <+> disp n <+> hcat (map disp ts) $$
+                                                  text "in the proof of lemma" <+> disp ln
                                              -- <+> text (show ps)
-                                   Just ps' -> put ps' >> prfConstr xs
+                                       Just ps' -> put (ps', ks) >> prfConstr xs
 
-prfConstr ((Use n ts):xs) = do ps@(ln,_,(_,cg,_):_) <- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
-                               case use ps n ts of
-                                   Nothing -> fail' $
-                                              text "fail to use the tactic: use"
-                                              <+> disp n <+> hcat (map disp ts)
-                                              $$ text "in the proof of lemma" <+> disp ln
-                                              $$ text "current goal:" <+> disp cg
-                                   Just ps' -> put ps' >> prfConstr xs
+prfConstr ((Use n ts):xs) = do (ps@(ln,_,(_,cg,_):_), ks )<- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
+                               case kindList ts ks of
+                                 Left err -> do lift $ Left $
+                                                  (text "kinding error:" $$ disp err)
+                                 Right _ ->  
+                                   case use ps n ts of
+                                     Nothing -> lift $ Left $
+                                                text "fail to use the tactic: use"
+                                                <+> disp n <+> hcat (map disp ts)
+                                                $$ text "in the proof of lemma" <+> disp ln
+                                                $$ text "current goal:" <+> disp cg
+                                     Just ps' -> put (ps', ks) >> prfConstr xs
 
 
                             

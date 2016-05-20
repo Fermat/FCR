@@ -150,7 +150,8 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
 loadFile :: FilePath -> StateT Env IO ()
 loadFile filename = do cnts <- lift (readFile filename)
                        case parseModule filename cnts of
-                         Left e ->  lift (print (disp e $$ text ("fail to load file "++filename)))
+                         Left e ->
+                           do lift $ print (disp e $$ text ("fail to load file "++filename))
                          Right a -> do let bindings = decls a
                                            pfs = prfs a
                                            ks = constKinds bindings
@@ -160,7 +161,6 @@ loadFile filename = do cnts <- lift (readFile filename)
                                        modify (\ s -> addKinds ks s)
 --                                       lift (print (show pfs))
                                        env <- get
-                                       
                                        case interpret env pfs of
                                          Right res -> do
                                            modify (\ s -> extendLms res s)
@@ -168,8 +168,8 @@ loadFile filename = do cnts <- lift (readFile filename)
                                            env' <- get
                                            lift $ print (disp env')
                                          Left err ->
-                                           lift (print (disp err $$
-                                                        text ("fail to load file "++filename)))
+                                           lift $ print (text "error in the proof script:"
+                                                         <+> disp err)
 
                            where extendMod [] s = s
                                  extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
