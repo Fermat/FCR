@@ -15,6 +15,12 @@ type KCMonad a = StateT Int (StateT KSubst (ReaderT KSubst (Either Doc))) a
 
 type KSubst = [(Name, Kind)]
 
+kindList :: [Exp] -> KSubst -> Either Doc [Kind]
+kindList ts g = mapM (\ x -> runKinding x g) ts
+
+runKinding :: Exp -> KSubst -> Either Doc Kind
+runKinding t g = runReaderT (evalStateT (evalStateT (inferKind t) 0) []) g
+
 ground :: Kind -> Kind
 ground (KVar x) = Star
 ground (KArrow k1 k2) = KArrow (ground k1) (ground k2)

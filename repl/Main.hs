@@ -41,8 +41,9 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
         Just ":iprover" -> do
           env <- lift get
           let gamma = axioms env ++ map (\ (x,(_,y))-> (x,y)) (lemmas env)
+              ks = kinds env
           result <- lift $ lift $ evalStateT (runInputT defaultSettings prover)
-                    (Var "dummy", [], ("dummy", Var "dummy", [([],Var "dummy" ,gamma)]))
+                    (Var "dummy", [], ("dummy", Var "dummy", [([],Var "dummy" ,gamma)]), ks)
           case result of
             Nothing -> loop
             Just (n, p, f) -> lift (modify (extendLemma n p f)) >> loop

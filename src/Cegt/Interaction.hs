@@ -2,6 +2,7 @@ module Cegt.Interaction where
 import Cegt.Syntax
 import Cegt.Monad
 import Cegt.PrettyPrinting
+import Cegt.Typecheck
 import Cegt.Rewrite
 import Data.List
 import Data.Char
