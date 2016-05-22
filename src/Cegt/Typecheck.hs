@@ -152,3 +152,61 @@ applyK subs (KVar x) =
 applyK subs (KArrow Star f2) =
   let a2 = applyK subs f2 in
   KArrow Star a2
+
+
+type PCMonad a = (ReaderT [(Name, Exp)] (Either Doc)) a
+
+ensureEq :: Exp -> Exp -> Maybe Doc
+ensureEq t1 t2 = if t1 `alphaEq` t2  then Nothing
+                 else Just $ text "expect:" <+> disp t1 $$ 
+                      text "actual:" <+> text t2
+    
+proofCheck :: Exp -> Exp -> PCMonad Exp
+proofCheck  (Var x) t = do env <- ask
+                           case lookup x env of
+                             Nothing -> lift $ Left 
+                                        $ text "proof checking error: undefined variable" 
+                                              <+> text x
+                             Just f -> case esureEq t f of
+                                         Nothing -> return t
+                                         Just err -> lift $ Left 
+                                                     $ text "proof checking error: " 
+                                                        <+> err $$
+                                                       text "at the variable" <+> disp x
+
+proofCheck (Const x) t = do env <- ask
+                            case lookup x env of
+                              Nothing -> lift $ Left 
+                                         $ text "proof checking error: undefined constant" 
+                                               <+> text x
+                              Just f -> case esureEq t f of
+                                          Nothing -> return ()
+                                          Just err -> lift $ Left 
+                                                      $ text "proof checking error: " 
+                                                            <+> err $$
+                                                       text "at the constant" <+> disp x
+                                                            
+                                                            
+                                              
+proofCheck (App e1 e2) t = do f1 <- proofCheck e1 
+                              f2 <- proofCheck e2
+                              case f1 of
+                                Imply a1 a2 -> 
+                                    if a1 `alphaEq` f2
+                                      then
+                                          if a2 `alphaEq` t then return ()
+                                              else lift $ Left $
+                                                   text "proof checking error at application"
+                                                            <+> disp (App e1 e2)
+                                      else lift $ Left $
+                                           text "proof checking error at application"
+                                                    <+> disp (App e1 e2)
+                                _ -> 
+                                    lift $ Left $
+                                    text "proof checking error, unknow type for " 
+                                    <+> disp e1
+
+proofCheck (Lambda x t) (Imply f1 f2) = do local ()
+           
+
+
