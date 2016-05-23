@@ -10,11 +10,14 @@ import Data.List hiding (partition)
 
 type Name = String
 
--- merge prog, kind, type into one syntactic category.
+-- evidence, type
 data Exp = Var Name
           | Const Name
-          | App Exp Exp 
-          | Lambda Name Exp 
+          | App Exp Exp
+          | TApp Exp Exp
+          | PApp Exp Exp
+          | Lambda Name (Maybe Exp) Exp
+          | Abs Name Exp
           | Imply Exp Exp
           | Arrow Exp Exp
           | Forall Name Exp
@@ -25,7 +28,8 @@ data Kind = Formula
           | KVar Name
           | KArrow Kind Kind
           deriving (Show, Eq)
-                     
+
+-- nameless for the type
 data Nameless = V Int
               | C Name
               | IMP Nameless Nameless
@@ -34,6 +38,7 @@ data Nameless = V Int
               | LAM Nameless
              deriving (Show, Eq)
 
+-- [Exp] for Apply and Use are all types
 data Tactic = Apply Name [Exp]
             | Coind
             | Use Name [Exp]
@@ -50,14 +55,21 @@ toFormula env = map (\(n,e)-> (n, helper e)) env
            foldr (\ z x -> Forall z x) (Imply (App (Var "p") t') (App (Var "p") t)) vars
 
 
+-- free vars of exp
 free = nub . freeVar 
 freeVar :: Exp -> [Name]
 freeVar (Var x) =  [x]
 freeVar (Const x) = []
 freeVar (Arrow f1 f2) = (freeVar f1) ++ (freeVar f2)
 freeVar (App f1 f2) = (freeVar f1) ++ (freeVar f2)
+freeVar (TApp f1 f2) = (freeVar f1) ++ (freeVar f2)
+freeVar (PApp f1 f2) = (freeVar f1) ++ (freeVar f2)
 freeVar (Forall x f) = delete x (freeVar f)
-freeVar (Lambda x f) = delete x (freeVar f)
+freeVar (Lambda x (Just f1) f) =
+  delete x $ freeVar f ++ free f1
+freeVar (Lambda x Nothing f) =
+  delete x $ freeVar f   
+freeVar (Abs x f) = delete x (freeVar f)
 freeVar (Imply b h) = freeVar b ++ freeVar h
 
 freeKVar :: Kind -> S.Set Name
@@ -65,13 +77,15 @@ freeKVar Star = S.empty
 freeKVar (KVar x) = S.insert x S.empty
 freeKVar (KArrow f1 f2) = (freeKVar f1) `S.union` (freeKVar f2)
 
+-- flatten of type
 flatten :: Exp -> [Exp]
-flatten (App f1 f2) = flatten f1 ++ [f2]
+flatten (PApp f1 f2) = flatten f1 ++ [f2]
 flatten a = [a]
 
 
 type BindCxt a = Reader [(Name, Int)] a
 
+-- debruijn representation of type 
 debruijn :: Exp -> BindCxt Nameless
 debruijn (Const x) = return $ C x
 debruijn (Var x) = do 
@@ -87,18 +101,18 @@ debruijn (Imply f1 f2) = do
   a2 <- debruijn f2
   return $ IMP a1 a2
 
-debruijn (App b1 b2) = do
+debruijn (PApp b1 b2) = do
   a <- debruijn b1
   a1 <- debruijn b2
   return $ AP a a1
 
-debruijn (Lambda x f) = do
+debruijn (Abs x f) = do
   a <- local (((x,0):) . plus1) $ debruijn f 
   return $ LAM a
 
 plus1 = map $ \(x, y) -> (x, y + 1)
 
-
+-- alphaEq of two type
 alphaEq :: Exp -> Exp -> Bool
 alphaEq t1 t2 =
     let t1' = foldl' (\t x -> Forall x t) t1 (free t1)
@@ -111,6 +125,7 @@ type GVar a = State Int a
 
 type Subst = [(Name, Exp)]
 
+-- both type level and evidence level substitution
 applyE :: Subst -> Exp -> Exp
 applyE [] e = e
 applyE ((n,t):xs) e = applyE xs $ runSubst t (Var n) e
@@ -134,6 +149,16 @@ subst s (Var x) (App f1 f2) = do
   c2 <- subst s (Var x) f2
   return $ App c1 c2
 
+subst s (Var x) (TApp f1 f2) = do
+  c1 <- subst s (Var x) f1
+  c2 <- subst s (Var x) f2
+  return $ TApp c1 c2
+
+subst s (Var x) (PApp f1 f2) = do
+  c1 <- subst s (Var x) f1
+  c2 <- subst s (Var x) f2
+  return $ PApp c1 c2
+
 subst s (Var x) (Forall a f) =
   if x == a || not (x `elem` free f) then return $ Forall a f
   else if not (a `elem` free s)
@@ -146,16 +171,46 @@ subst s (Var x) (Forall a f) =
          c1 <- subst (Var (a++ show n)) (Var a) f
          subst s (Var x) (Forall (a ++ show n) c1)
 
-subst s (Var x) (Lambda a f) =
-  if x == a || not (x `elem` free f) then return $ Lambda a f
+subst s (Var x) (Abs a f) =
+  if x == a || not (x `elem` free f) then return $ Forall a f
   else if not (a `elem` free s)
        then do
          c <- subst s (Var x) f
-         return $ Lambda a c
+         return $ Forall a c
        else do
          n <- get
          modify (+1)
          c1 <- subst (Var (a++ show n)) (Var a) f
-         subst s (Var x) (Lambda (a ++ show n) c1)         
+         subst s (Var x) (Abs (a ++ show n) c1)
+
+subst s (Var x) (Lambda a Nothing f) =
+  if x == a || not (x `elem` free f) then return $ Lambda a Nothing f
+  else if not (a `elem` free s)
+       then do
+         c <- subst s (Var x) f
+         return $ Lambda a Nothing c
+       else do
+         n <- get
+         modify (+1)
+         c1 <- subst (Var (a++ show n)) (Var a) f
+         subst s (Var x) (Lambda (a ++ show n) Nothing c1)         
+
+
+subst p (Var x) (Lambda y (Just t) p1) =
+  if x == y || not (x `elem` free p1)
+    then do
+    t1 <- subst p (Var x) t
+    return $ Lambda y (Just t1) p1
+    else if not (y `elem` free p)
+         then do
+           t1 <- subst p (Var x) t
+           c <- subst p (Var x) p1
+           return $ Lambda y (Just t1) c
+         else do
+           n <- get
+           modify (+1)
+           c1 <- subst (Var (y++ show n)) (Var y) p1
+           subst p (Var x) (Lambda (y++ show n) (Just t) c1)
+           
 
   
