@@ -49,17 +49,17 @@ viewFVars _ = []
 
 
 viewFBody :: Exp -> Exp
-viewFBody (Forall _ a) = viewLBody a
+viewFBody (Forall _ a) = viewFBody a
 viewFBody x = x
 
 viewAVars :: Exp -> [Name]
 viewAVars (Abs n a) =
-  n : viewFVars a
+  n : viewAVars a
 viewAVars _ = []
 
 
 viewABody :: Exp -> Exp
-viewABody (Abs _ a) = viewLBody a
+viewABody (Abs _ a) = viewABody a
 viewABody x = x
 
 instance Disp Kind where
@@ -96,11 +96,11 @@ instance Disp Exp where
         b = viewLBody a
         ds = map (\ (x, k) ->
                    case k of
-                     Nothing -> text x
+                     Nothing -> nest 4 $ text x
                      Just k' ->
-                       text "(" <> text x <+> text ":"
-                       <+>disp k' <> text ")") vars
-    in sep [text "\\", sep ds, text ".", nest 2 $ disp t]
+                       nest 8 $ text "(" <> text x <+> text ":"
+                       <+> disp k' <> text ")") vars
+    in sep [text "\\" <+> sep ds <+> text ".", nest 10 $ disp b]
 
 
   disp (a@(Arrow t1 t2)) =
@@ -111,12 +111,12 @@ instance Disp Exp where
   disp (a@(Forall x f)) =
     let vars = map disp $ viewFVars a
         b = viewFBody a in
-    sep [text "forall", sep vars, text ".", nest 2 $ disp f]
+    sep [text "forall" <+> sep vars <+> text ".", nest 2 $ disp b]
 
   disp (a@(Abs x f)) =
     let vars = map disp $ viewFVars a
         b = viewFBody a in
-    sep [text "\\", sep vars, text ".", nest 2 $ disp f]
+    sep [text "\\" <+> sep vars <+> text ".", nest 2 $ disp b]
 
   disp (a@(Imply t1 t2)) =
    sep [dParen (precedence a) t1,

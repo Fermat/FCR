@@ -41,21 +41,22 @@ loop ch tr = let (_,_,_,e') = last tr
                  cyc = [(p, s) | (p, t) <- getSubterms e', s <- match ch t]
               in case cyc of
                    [] -> Nothing
-                   (p,s):[] -> let cxt = Lambda "`h" $ replace e' p (Var "`h")
+                   (p,s):[] -> let cxt = Abs "`h" $ replace e' p (Var "`h")
                                    codomain = map snd s
-                                   r = foldl' (\ z x -> App z x) (App (Var "d") cxt) codomain
+                                   r = foldl' (\ z x -> TApp z x) (TApp (Var "d") cxt) codomain
                                in Just $ applyE [("`a", r)] pf 
                  
                 
 
 
-partial (Trace (t:tr)) = Lambda "`a" $ construct tr
+partial (Trace ((_,_,_,t):tr)) = Lambda "`a" (Just t) $ construct tr
+
 construct :: [(Pos, Subst, Name, Exp)] -> Exp
 construct [] = (Var "`a")
 construct ((p, s, n, e):xs) =
   let codomain = map snd s
-      cxt = Lambda "`h" $ replace e p (Var "`h")
-      pf = foldl' (\ z x -> App z x) (App (Const n) cxt) codomain
+      cxt = Abs "`h" $ replace e p (Var "`h")
+      pf = foldl' (\ z x -> TApp z x) (TApp (Const n) cxt) codomain
   in App pf (construct xs)
 
 

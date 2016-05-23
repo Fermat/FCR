@@ -119,6 +119,7 @@ binOp assoc op f = Infix (reservedOp op >> return f) assoc
 typeOpTable :: [[Operator String u (State SourcePos) Exp]]
 typeOpTable = [[binOp AssocRight "=>" Imply, binOp AssocRight "~>" Arrow]]
 
+-- parse type expression
 base :: Parser Exp
 base = forall <|> lambda <|> try compound <|> try (parens term)
 
@@ -127,7 +128,7 @@ lambda = do
   as <- many1 var
   reservedOp "."
   p <- term
-  return $ foldr (\ x y -> Lambda x y) p (map (\(Var x) -> x) as)
+  return $ foldr (\ x y -> Abs x y) p (map (\(Var x) -> x) as)
 
 forall = do
   reserved "forall"
@@ -140,7 +141,7 @@ compound = do
   n <- try var <|> con <|> parens term 
   as <- compoundArgs
   if null as then return n
-    else return $ foldl' (\ z x -> App z x) n as 
+    else return $ foldl' (\ z x -> PApp z x) n as 
 
 compoundArgs =
   many $ indented >> (try con <|> try var <|> try (parens term))

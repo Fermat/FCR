@@ -8,8 +8,9 @@ import Text.PrettyPrint
 import Control.Monad.State
 import Control.Monad.Reader
 
-
-type Pos = [Int] -- a sequence of 0 and 1, 0 indicates first argument for App
+-- a sequence of 0 and 1, 0 indicates first argument
+-- for App
+type Pos = [Int] 
 
 type RedTree = Tree (Pos, Name, Exp)
 
@@ -17,18 +18,40 @@ dispTree :: Tree (Pos, Name, Exp) -> Tree String
 dispTree (Node (p, n, e) xs) =
   Node ("["++(concat $ map show p)++"]" ++", " ++ n ++ ", " ++ (show $ disp e)) $ map dispTree xs
 
-reduce :: [(Name, Exp)] -> (Pos, Name, Exp) -> Int -> RedTree
+reduce :: [(Name, Exp)] -> (Pos, Name, Exp) -> Int ->
+          RedTree
 reduce env node n | n == 0 = Node node []
-reduce env (p, k, e) n | n > 0 = Node (p,k,e) (map (\ x -> reduce env x (n-1)) $ reduceOne e env)
+reduce env (p, k, e) n | n > 0 =
+  Node (p,k,e)
+  (map (\ x -> reduce env x (n-1)) $ reduceOne e env)
 
 reduceOne :: Exp -> [(Name, Exp)] -> [(Pos, Name, Exp)]
-reduceOne e env = [(p, n, replace e p r') | ((p, r), l) <- getReductions e env, (n, r') <- l]
+reduceOne e env =
+  [(p, n, replace e p r') |
+   ((p, r), l) <- getReductions e env, (n, r') <- l]
 
+-- replacement in the functionalised representation
 replace :: Exp -> Pos -> Exp -> Exp
 replace e [] r = r
-replace (PApp t1 t2) (x:xs) r | x ==1 = PApp t1 (replace t2 xs r)
-replace (PApp t1 t2) (x:xs) r | x ==0 = PApp (replace t1 xs r) t2
-replace (Abs y t2) (x:xs) r | x == 1 = Abs y (replace t2 xs r) 
+replace (App t1 t2) (x:xs) r | x ==1 =
+  App t1 (replace t2 xs r)
+                             | x ==0 =
+    App (replace t1 xs r) t2
+replace (PApp t1 t2) (x:xs) r | x ==1 =
+  PApp t1 (replace t2 xs r)
+                             | x ==0 =
+    PApp (replace t1 xs r) t2
+
+replace (TApp t1 t2) (x:xs) r | x ==1 =
+  TApp t1 (replace t2 xs r)
+                             | x ==0 =
+    TApp (replace t1 xs r) t2
+
+replace (Abs y t2) (x:xs) r | x == 1 =
+  Abs y (replace t2 xs r) 
+replace (Lambda y t t2) (x:xs) r | x == 2 =
+  Lambda y t (replace t2 xs r) 
+
 
 getReductions :: Exp -> [(Name, Exp)] -> [((Pos, Exp), [(Name, Exp)])]
 getReductions x env = [((p, e), r) | (p, e) <- getSubterms x, let r = allMatches e env, r /= [] ]
@@ -36,16 +59,17 @@ getReductions x env = [((p, e), r) | (p, e) <- getSubterms x, let r = allMatches
 getSubterms :: Exp -> [(Pos, Exp)]
 getSubterms x = runReader (subterms x) []
 
+-- subterms of first order type
 subterms :: Exp -> Reader Pos [(Pos, Exp)]
 subterms (Var x) = do p <- ask
                       return [(p, Var x)]
 subterms (Const x) = do p <- ask
                         return [(p, Const x)]
 
-subterms (App t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
-                          l2 <- local (\r -> r++[1]) (subterms t2)
-                          p <- ask
-                          return ((p, (App t1 t2)):(l1++l2))
+subterms (PApp t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
+                           l2 <- local (\r -> r++[1]) (subterms t2)
+                           p <- ask
+                           return ((p, (PApp t1 t2)):(l1++l2))
 
 data Trace = Trace [(Pos, Subst, Name, Exp)] deriving Show
 instance Disp Trace where
@@ -62,14 +86,14 @@ stepsInner env e n | n > 0 = case stepInner env e of
 
 stepInner :: [(Name, Exp)] -> Exp -> (Maybe (Pos, Subst, Name, Exp))
 stepInner env e = case e of
-                    App a b ->
+                    PApp a b ->
                       case (stepInner env a) of
                         Nothing -> case stepInner env b of
                                       Nothing -> case firstMatch e env of
                                                    Just (k, e', s) -> Just ([], s, k, e')
                                                    _ -> Nothing
-                                      Just (p, s, n, b') -> Just (1:p, s, n, App a b')
-                        Just (p, s, n, a') -> Just (0:p, s, n, App a' b)
+                                      Just (p, s, n, b') -> Just (1:p, s, n, PApp a b')
+                        Just (p, s, n, a') -> Just (0:p, s, n, PApp a' b)
                     Const a -> case firstMatch e env of
                                   Just (k, e', s) -> Just ([], s, k, e')
                                   _ -> Nothing
@@ -90,13 +114,13 @@ steps env e n | n > 0 = case step env e of
 step :: [(Name, Exp)] -> Exp -> (Maybe (Pos, Subst, Name, Exp))
 step env e = case firstMatch e env of
                     Nothing -> case e of
-                                   App a b ->
+                                   PApp a b ->
                                      case (step env a) of
                                        Nothing -> case step env b of
                                                     Nothing -> Nothing
                                                     Just (p, s, n, b') ->
-                                                      Just (1:p, s, n, App a b')
-                                       Just (p, s, n, a') -> Just (0:p, s, n, App a' b)
+                                                      Just (1:p, s, n, PApp a b')
+                                       Just (p, s, n, a') -> Just (0:p, s, n, PApp a' b)
                                    _ -> Nothing
                     Just (k, e', s) -> Just ([], s, k, e')
 
@@ -114,7 +138,7 @@ allMatches x env = [ (k, applyE s r)  | (k, Arrow l r) <- env, s <- match l x]
 
 
 match (Var s) t1 = return [(s, t1)]
-match (App t1 t2) (App t1' t2') = do
+match (PApp t1 t2) (PApp t1' t2') = do
   s1 <- match t1 t1'
   s2 <- match t2 t2'
   merge s1 s2

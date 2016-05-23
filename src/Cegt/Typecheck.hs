@@ -43,7 +43,7 @@ inferKind (Var x) = do
       return kind
     Just k -> return k  
   
-inferKind (App f1 f2) = do
+inferKind (PApp f1 f2) = do
   k1 <- inferKind f1
   k2 <- inferKind f2
   unificationK k2 Star
@@ -51,7 +51,7 @@ inferKind (App f1 f2) = do
   unificationK k1 $ KArrow Star (KVar k) 
   return (KVar k) 
 
-inferKind (Lambda x t) = do
+inferKind (Abs x t) = do
   lift $ modify (\ e -> (x, Star): e)
   let vars = free t
       l = intersect vars [x]
@@ -153,7 +153,7 @@ applyK subs (KArrow Star f2) =
   let a2 = applyK subs f2 in
   KArrow Star a2
 
-
+{-
 type PCMonad a = (ReaderT [(Name, Exp)] (Either Doc)) a
 
 ensureEq :: Exp -> Exp -> Maybe Doc
@@ -207,6 +207,6 @@ proofCheck (App e1 e2) t = do f1 <- proofCheck e1
                                     <+> disp e1
 
 proofCheck (Lambda x t) (Imply f1 f2) = do local ()
-           
+-}           
 
 

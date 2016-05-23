@@ -172,11 +172,11 @@ subst s (Var x) (Forall a f) =
          subst s (Var x) (Forall (a ++ show n) c1)
 
 subst s (Var x) (Abs a f) =
-  if x == a || not (x `elem` free f) then return $ Forall a f
+  if x == a || not (x `elem` free f) then return $ Abs a f
   else if not (a `elem` free s)
        then do
          c <- subst s (Var x) f
-         return $ Forall a c
+         return $ Abs a c
        else do
          n <- get
          modify (+1)

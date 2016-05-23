@@ -69,17 +69,17 @@ prfConstr ((Use n ts):xs) = do (ps@(ln,_,(_,cg,_):_), ks )<- get  -- (Name, Exp,
 
                             
 
-
+-- normalize type expresion
 normalize :: Exp -> Exp
 normalize (Var a) = Var a
 -- normalize Star = Star
 normalize (Const a) = Const a
-normalize (Lambda x t) = Lambda x (normalize t)
-normalize (App (Lambda x t') t) = runSubst t (Var x) t'
-normalize (App (Var x) t) = App (Var x) (normalize t)
-normalize (App (Const x) t) = App (Const x) (normalize t)
-normalize (App t' t) = case (App (normalize t') (normalize t)) of
-                              a@(App (Lambda x t') t) -> normalize a
+normalize (Abs x t) = Abs x (normalize t)
+normalize (PApp (Abs x t') t) = runSubst t (Var x) t'
+normalize (PApp (Var x) t) = PApp (Var x) (normalize t)
+normalize (PApp (Const x) t) = PApp (Const x) (normalize t)
+normalize (PApp t' t) = case (PApp (normalize t') (normalize t)) of
+                              a@(PApp (Abs x t') t) -> normalize a
                               b -> b
 normalize (Imply t t') = Imply (normalize t) (normalize t')
 normalize (Forall x t) = Forall x (normalize t)
@@ -105,13 +105,14 @@ intros (gn, pf, (pos, goal, gamma):res) ns =
       lv = length vars
       num = lv + lb
       impNames = drop lv ns 
-      names = ns 
-      newLam = foldr (\ a b -> Lambda a b) head names
-      pf' = replace pf pos newLam
+      absNames = take lv ns
       newEnv = zip impNames body
-      pos' = pos ++ take num streamOne in (gn, pf', (pos',head, gamma++newEnv):res)
+      newLam = foldr (\ (a, exp) b -> Lambda a (Just exp) b) head newEnv
+      newAbs = foldr (\ a b -> Lambda a Nothing b) newLam absNames
+      pf' = replace pf pos newAbs
+      pos' = pos ++ take num stream2 in (gn, pf', (pos',head, gamma++newEnv):res)
 
-streamOne = 1:streamOne
+stream2 = 2:stream2
 
 apply :: ProofState -> Name -> [Exp] -> Maybe ProofState
 apply (gn, pf, []) k ins = Just (gn, pf, [])
@@ -126,14 +127,14 @@ apply (gn, pf, (pos, goal, gamma):res) k ins =
                   head'' = applyE renaming head
                   body' = map normalize $ (map (applyE sub) body'')
                   head' = normalize $ applyE sub head''
-              in if head' /= goal then Nothing
-                                       -- error $ "error apply" ++ show head' ++ "--" ++ show goal
-                                       -- ++ show sub ++ "--" ++ show head 
-                 else let np = ins++body'
+              in if head' /= goal then -- Nothing
+                                       error $ "error apply--" ++ show head' ++ "--" ++ show goal
+                                       ++ show sub ++ "--" ++ show head 
+                 else let np = ins -- ++body'
                           name = case k of
                                    n:_ -> if isUpper n then Const k else Var k
                                    a -> error "unknow error from apply"
-                          contm = foldl' (\ z x -> App z x) name np
+                          contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
                           pf' = replace pf pos contm
                           zeros = makeZeros $ length body'
                           ps = map (\ x -> pos++x++[1]) zeros
@@ -159,7 +160,7 @@ use (gn, pf, (pos, goal, gamma):res) k ins =
                    let name = case k of
                                    n:_ -> if isUpper n then Const k else Var k
                                    a -> error "unknow error from use"
-                       contm = foldl' (\ z x -> App z x) name ins
+                       contm = foldl' (\ z x -> TApp z x) name ins
                        pf' = replace pf pos contm
                    in Just (gn, pf', res)  
 
@@ -190,3 +191,5 @@ make n | n > 0 = take (n-1) stream
                      
                  
                                                     
+-- PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z"))))
+-- PApp (Forall "y" (PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (Var "y")))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z")))
