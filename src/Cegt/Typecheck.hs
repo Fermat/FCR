@@ -1,6 +1,7 @@
 module Cegt.Typecheck where
 
 import Cegt.Syntax
+
 import Cegt.PrettyPrinting
 
 import Text.PrettyPrint
@@ -19,6 +20,9 @@ kindList ts g = mapM (\ x -> runKinding x g) ts
 
 runKinding :: Exp -> KSubst -> Either Doc Kind
 runKinding t g = runReaderT (evalStateT (evalStateT (inferKind t) 0) []) g
+
+runKinding' :: Exp -> KSubst -> Either Doc (Kind, KSubst)
+runKinding' t g = runReaderT (runStateT (evalStateT (inferKind t) 0) []) g
 
 ground :: Kind -> Kind
 ground (KVar x) = Star
@@ -153,60 +157,119 @@ applyK subs (KArrow Star f2) =
   let a2 = applyK subs f2 in
   KArrow Star a2
 
-{-
-type PCMonad a = (ReaderT [(Name, Exp)] (Either Doc)) a
 
-ensureEq :: Exp -> Exp -> Maybe Doc
-ensureEq t1 t2 = if t1 `alphaEq` t2  then Nothing
-                 else Just $ text "expect:" <+> disp t1 $$ 
-                      text "actual:" <+> text t2
-    
-proofCheck :: Exp -> Exp -> PCMonad Exp
-proofCheck  (Var x) t = do env <- ask
-                           case lookup x env of
-                             Nothing -> lift $ Left 
+type PCMonad a = (ReaderT [(Name, Exp)] (ReaderT KSubst (Either Doc))) a
+
+-- check a type exp is either of kind * or o
+kindable :: Exp -> KSubst -> PCMonad ()
+kindable t ks = case runKinding t ks of
+                   Left err -> lift $ lift $ Left $ text "ill-kinded type: " <+> disp t
+                   Right a -> case a of
+                                 Formula -> return ()
+                                 Star -> return ()
+                                 e -> lift $ lift $ Left ((text "ill-kinded type " <+> disp t) $$
+                                                          nest 2 (text "expected: o or *" <+>
+                                                                  text "actual kind:" <+> disp e)) 
+
+
+proofCheck :: Exp -> PCMonad Exp
+proofCheck (Var x) = do env <- ask
+                        case lookup x env of
+                             Nothing -> lift $ lift $ Left 
                                         $ text "proof checking error: undefined variable" 
-                                              <+> text x
-                             Just f -> case esureEq t f of
-                                         Nothing -> return t
-                                         Just err -> lift $ Left 
-                                                     $ text "proof checking error: " 
-                                                        <+> err $$
-                                                       text "at the variable" <+> disp x
+                                        <+> text x
+                             Just f -> do
+                               ks <- lift ask 
+                               kindable f ks
+                               return f
 
-proofCheck (Const x) t = do env <- ask
-                            case lookup x env of
-                              Nothing -> lift $ Left 
-                                         $ text "proof checking error: undefined constant" 
-                                               <+> text x
-                              Just f -> case esureEq t f of
-                                          Nothing -> return ()
-                                          Just err -> lift $ Left 
-                                                      $ text "proof checking error: " 
-                                                            <+> err $$
-                                                       text "at the constant" <+> disp x
+proofCheck (Const x) = do env <- ask
+                          case lookup x env of
+                              Nothing -> lift $ lift $ Left 
+                                         $ text "proof checking error: unknown constant" 
+                                         <+> text x
+                              Just f -> do
+                               ks <- lift ask 
+                               kindable f ks
+                               return f
                                                             
-                                                            
-                                              
-proofCheck (App e1 e2) t = do f1 <- proofCheck e1 
-                              f2 <- proofCheck e2
-                              case f1 of
+proofCheck (App e1 e2)  = do f1 <- proofCheck e1 
+                             f2 <- proofCheck e2
+                             case f1 of
                                 Imply a1 a2 -> 
                                     if a1 `alphaEq` f2
-                                      then
-                                          if a2 `alphaEq` t then return ()
-                                              else lift $ Left $
-                                                   text "proof checking error at application"
-                                                            <+> disp (App e1 e2)
-                                      else lift $ Left $
-                                           text "proof checking error at application"
-                                                    <+> disp (App e1 e2)
-                                _ -> 
-                                    lift $ Left $
-                                    text "proof checking error, unknow type for " 
-                                    <+> disp e1
+                                    then return a2
+                                    else lift $ lift $ Left 
+                                         ((text "proof checking error at application"
+                                         <+> disp (App e1 e2)) $$ (nest 2 $ text "relevant types:" <+> disp f1)
+                                         $$ (nest 2 $ disp f2))
+                                b ->  lift $ lift $ Left 
+                                      ((text "proof checking error at application"
+                                        <+> disp (App e1 e2)) $$ (nest 2 $ text "relevant types:" <+> disp f1)
+                                       $$ (nest 2 $ disp f2))
+                                 
 
-proofCheck (Lambda x t) (Imply f1 f2) = do local ()
--}           
+proofCheck (Lambda x (Just t1) t) = do t <- local (\ y -> (x, t1) : y) (proofCheck t1)
+                                       return $ Imply t1 t
+
+proofCheck (Lambda x Nothing t) = do
+  f <- proofCheck t
+  e <- ask
+  if isFree x e
+    then lift $ lift $ Left $
+         sep [text "proof checking error", text "generalized variable" <+> disp x, text "appears in the assumptions"]
+    else do
+    ks <- lift ask
+    (k, sub) <- lift $ lift $ runKinding' (Forall x f) ks
+    case lookup x sub of
+      Nothing -> lift $ lift $ Left $
+         sep [text "proof checking error", text "vacuous abstraction on variable" <+> disp x]
+      Just l -> if isTerm $ ground l then return $ (Forall x f)
+                else lift $ lift $ Left $
+                     sep [text "proof checking error", text "ill-kinded variable" <+> disp x,
+                          text "with kind", disp l]
+
+
+proofCheck (TApp e1 e2)  = do f1 <- proofCheck e1
+                              ks <- lift ask
+                              (k1, _) <- lift $ lift $ runKinding' e2 ks
+                              let k = ground k1
+                              if isTerm k then
+                                case f1 of
+                                  Forall x a2 -> do
+                                    (_, subs) <- lift $ lift $ runKinding' a2 ks
+                                    case lookup x subs of
+                                      Nothing -> lift $ lift $ Left $
+                                                 sep [text "proof checking error",
+                                                      text "vacuous abstraction on variable" <+> disp x,
+                                                      text "in the type of" <+> disp e1,
+                                                      text "its kind" <+> disp (Forall x a2)]
+                                      Just k2 -> 
+                                        if ground k2 == k
+                                        then do let res = normalize $ runSubst e2 (Var x) a2
+                                                kindable res ks   
+                                                return res    
+                                        else lift $ lift $ Left $
+                                             sep [text "proof checking error:",
+                                                  text "kind mismatch",
+                                                  text "expected"<+> disp k,
+                                                  text "actual kind" <+> disp (ground k2),
+                                                  text "on the applicant of" <+> disp e1
+                                                  ]
+
+                                  b ->  lift $ lift $ Left $
+                                        (text "proof checking error on"
+                                         <+> disp e1) $$ (nest 2 $ text "unexpected type:" <+> disp b)
+                                       
+                                else lift $ lift $ Left $
+                                     sep [text "proof checking error", text "ill-kinded expression:",
+                                          disp e2]
+
+isFree :: Name -> [(Name, Exp)] -> Bool
+isFree x m = not (null (filter (\ y ->  x `elem` (free (snd y))) m))
+                                       
+
+
+
 
 

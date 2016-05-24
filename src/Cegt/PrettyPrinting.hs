@@ -97,11 +97,11 @@ instance Disp Exp where
         b = viewLBody a
         ds = map (\ (x, k) ->
                    case k of
-                     Nothing -> nest 4 $ text x
+                     Nothing -> nest 2 $ text x
                      Just k' ->
-                       nest 8 $ text "(" <> text x <+> text ":"
+                       nest 2 $ text "(" <> text x <+> text ":"
                        <+> disp k' <> text ")") vars
-    in sep [text "\\" <+> sep ds <+> text ".", nest 10 $ disp b]
+    in sep [text "\\" <+> sep ds <+> text ".", nest 4 $ disp b]
 
 
   disp (a@(Arrow t1 t2)) =

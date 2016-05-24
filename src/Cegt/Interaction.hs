@@ -70,21 +70,6 @@ prfConstr ((Use n ts):xs) = do (ps@(ln,_,(_,cg,_):_), ks )<- get  -- (Name, Exp,
 
                             
 
--- normalize type expresion
-normalize :: Exp -> Exp
--- normalize r | trace ("normalize " ++ show r) False = undefined
-normalize (Var a) = Var a
--- normalize Star = Star
-normalize (Const a) = Const a
-normalize (Abs x t) = Abs x (normalize t)
-normalize (PApp (Abs x t') t) = runSubst t (Var x) t'
-normalize (PApp (Var x) t) = PApp (Var x) (normalize t)
-normalize (PApp (Const x) t) = PApp (Const x) (normalize t)
-normalize (PApp t' t) = case (PApp (normalize t') (normalize t)) of
-                              a@(PApp (Abs x t') t) -> normalize a
-                              b -> b
-normalize (Imply t t') = Imply (normalize t) (normalize t')
-normalize (Forall x t) = Forall x (normalize t)
 -- normalize a = error $ show a
 
 -- quantify :: Exp -> ([Name], Exp)
