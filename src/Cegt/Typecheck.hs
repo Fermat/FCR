@@ -1,6 +1,7 @@
 module Cegt.Typecheck where
 
 import Cegt.Syntax
+import Cegt.Monad
 
 import Cegt.PrettyPrinting
 
@@ -160,6 +161,17 @@ applyK subs (KArrow Star f2) =
 
 type PCMonad a = (ReaderT [(Name, Exp)] (ReaderT KSubst (Either Doc))) a
 
+-- use current axioms and lemmas to check more lemma 
+runProofCheck :: Name -> Exp -> Exp -> Env -> Either Doc ()
+runProofCheck n t f env = do
+  let ev = (n, f) : (axioms env ++ (map (\ (x, (_, f)) -> (x, f)) $ lemmas env))
+      ks = kinds env
+  case runReaderT (runReaderT (proofCheck t) ev) ks of
+    Left err -> Left err
+    Right f' -> if f' `alphaEq` f then return ()
+                else Left $ sep [text "proof checking error", text "expected type:" <+> disp f,
+                          text "actual type:", disp f']
+  
 -- check a type exp is either of kind * or o
 kindable :: Exp -> KSubst -> PCMonad ()
 kindable t ks = case runKinding t ks of
