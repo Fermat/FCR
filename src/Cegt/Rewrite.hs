@@ -7,7 +7,7 @@ import Data.Tree
 import Text.PrettyPrint
 import Control.Monad.State
 import Control.Monad.Reader
-
+import Debug.Trace
 -- a sequence of 0 and 1, 0 indicates first argument
 -- for App
 type Pos = [Int] 
@@ -32,6 +32,7 @@ reduceOne e env =
 
 -- replacement in the functionalised representation
 replace :: Exp -> Pos -> Exp -> Exp
+-- replace e pos r | trace ("replace " ++ show pos) False = undefined
 replace e [] r = r
 replace (App t1 t2) (x:xs) r | x ==1 =
   App t1 (replace t2 xs r)

@@ -9,6 +9,7 @@ import Data.Char
 
 import Control.Monad.State
 import Text.PrettyPrint
+import Debug.Trace
 
 interpret :: Env -> [((Name, Exp), [Tactic])] -> Either Doc [(Name, (Exp, Exp))]
 interpret env pfs = do res <- mapM (lemmaConstr env) pfs
@@ -71,6 +72,7 @@ prfConstr ((Use n ts):xs) = do (ps@(ln,_,(_,cg,_):_), ks )<- get  -- (Name, Exp,
 
 -- normalize type expresion
 normalize :: Exp -> Exp
+-- normalize r | trace ("normalize " ++ show r) False = undefined
 normalize (Var a) = Var a
 -- normalize Star = Star
 normalize (Const a) = Const a
@@ -179,8 +181,10 @@ getPre ::  Exp -> ([Exp],Exp)
 getPre (Imply x y) = let (bs, t') = getPre y in (x:bs, t')
 getPre t = ([], t)
 
+-- makeZeros n | trace ("myZeros " ++ show n) False = undefined
 makeZeros 0 = []
 makeZeros n | n > 0 = make n : makeZeros (n-1)
+
 stream = 0:stream
 make n | n > 0 = take (n-1) stream
 

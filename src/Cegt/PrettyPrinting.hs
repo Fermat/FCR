@@ -6,7 +6,7 @@ import Text.PrettyPrint
 import Text.Parsec.Pos
 import Data.Char
 import Text.Parsec.Error(ParseError,showErrorMessages,errorPos,errorMessages)
-
+-- import Debug.Trace
 class Disp d where
   disp :: d -> Doc
   precedence :: d -> Int
@@ -77,6 +77,7 @@ instance Disp Kind where
 
 
 instance Disp Exp where
+--  disp r | trace ("disp " ++ show r) False = undefined
   disp (Const x) = disp x
   disp (Var x) = disp x
   disp (s@(App s1 s2)) =
@@ -114,8 +115,8 @@ instance Disp Exp where
     sep [text "forall" <+> sep vars <+> text ".", nest 2 $ disp b]
 
   disp (a@(Abs x f)) =
-    let vars = map disp $ viewFVars a
-        b = viewFBody a in
+    let vars = map disp $ viewAVars a
+        b = viewABody a in
     sep [text "\\" <+> sep vars <+> text ".", nest 2 $ disp b]
 
   disp (a@(Imply t1 t2)) =
