@@ -24,6 +24,11 @@ strategy.
 1. Proof checker and kind checker.
 2. UI.
 3. Checking algebraic property.
+----------------------------------
+2. checking algebraic property
+3. Type checking with higher order matching and automatic annotation
+1. Evaluator
+
 
 
 
