@@ -56,21 +56,21 @@ toFormula env = map (\(n,e)-> (n, helper e)) env
 
 
 -- free vars of exp
-free = nub . freeVar 
-freeVar :: Exp -> [Name]
-freeVar (Var x) =  [x]
-freeVar (Const x) = []
-freeVar (Arrow f1 f2) = (freeVar f1) ++ (freeVar f2)
-freeVar (App f1 f2) = (freeVar f1) ++ (freeVar f2)
-freeVar (TApp f1 f2) = (freeVar f1) ++ (freeVar f2)
-freeVar (PApp f1 f2) = (freeVar f1) ++ (freeVar f2)
-freeVar (Forall x f) = delete x (freeVar f)
+free = S.toList . freeVar 
+-- freeVar :: Exp -> [Name]
+freeVar (Var x) =  S.insert x S.empty
+freeVar (Const x) = S.empty
+freeVar (Arrow f1 f2) = (freeVar f1) `S.union` (freeVar f2)
+freeVar (App f1 f2) = (freeVar f1) `S.union` (freeVar f2)
+freeVar (TApp f1 f2) = (freeVar f1) `S.union` (freeVar f2)
+freeVar (PApp f1 f2) = (freeVar f1) `S.union` (freeVar f2)
+freeVar (Forall x f) = S.delete x (freeVar f)
 freeVar (Lambda x (Just f1) f) =
-  delete x $ freeVar f ++ free f1
+  S.delete x $ freeVar f `S.union` freeVar f1
 freeVar (Lambda x Nothing f) =
-  delete x $ freeVar f   
-freeVar (Abs x f) = delete x (freeVar f)
-freeVar (Imply b h) = freeVar b ++ freeVar h
+  S.delete x $ freeVar f   
+freeVar (Abs x f) = S.delete x (freeVar f)
+freeVar (Imply b h) = freeVar b `S.union` freeVar h
 
 freeKVar :: Kind -> S.Set Name
 freeKVar Star = S.empty
@@ -124,7 +124,14 @@ alphaEq t1 t2 =
 type GVar a = State Int a
 
 type Subst = [(Name, Exp)]
-
+-- kind level sub
+applyK :: [(Name, Kind)] -> Kind -> Kind
+applyK s Star = Star
+applyK s Formula = Formula
+applyK s (KVar x) = case lookup x s of
+                       Just t -> t
+                       Nothing -> (KVar x)
+applyK s (KArrow k1 k2) = KArrow (applyK s k1) (applyK s k2)
 -- both type level and evidence level substitution
 applyE :: Subst -> Exp -> Exp
 applyE [] e = e

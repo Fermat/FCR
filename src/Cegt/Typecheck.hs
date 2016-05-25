@@ -20,11 +20,15 @@ kindList :: [Exp] -> KSubst -> Either Doc [Kind]
 kindList ts g = mapM (\ x -> runKinding x g) ts
 
 runKinding :: Exp -> KSubst -> Either Doc Kind
-runKinding t g = runReaderT (evalStateT (evalStateT (inferKind t) 0) []) g
+runKinding t g = do (k, sub) <- runKinding' t g
+                    return $ ground k
+  -- runReaderT (evalStateT (evalStateT (inferKind t) 0) []) g
 
 runKinding' :: Exp -> KSubst -> Either Doc (Kind, KSubst)
-runKinding' t g = runReaderT (runStateT (evalStateT (inferKind t) 0) []) g
-
+runKinding' t g = do
+  (k, sub) <- runReaderT (runStateT (evalStateT (inferKind t) 0) []) g 
+  return (ground k, sub)
+  
 ground :: Kind -> Kind
 ground (KVar x) = Star
 ground (KArrow k1 k2) = KArrow (ground k1) (ground k2)
@@ -146,17 +150,17 @@ unificationK t1 t2 = do
   new <- unifyK (applyK subs t1) (applyK subs t2)
   lift $ put $ combineK new subs
 
-applyK :: [(Name, Kind)] -> Kind -> Kind
-applyK _ Star = Star
-applyK _ Formula = Formula
-applyK subs (KVar x) =
-  case lookup x subs of
-    Just x1 -> x1
-    Nothing -> KVar x
+-- applyK :: [(Name, Kind)] -> Kind -> Kind
+-- applyK _ Star = Star
+-- applyK _ Formula = Formula
+-- applyK subs (KVar x) =
+--   case lookup x subs of
+--     Just x1 -> x1
+--     Nothing -> KVar x
 
-applyK subs (KArrow Star f2) =
-  let a2 = applyK subs f2 in
-  KArrow Star a2
+-- applyK subs (KArrow Star f2) =
+--   let a2 = applyK subs f2 in
+--   KArrow Star a2
 
 
 type PCMonad a = (ReaderT [(Name, Exp)] (ReaderT KSubst (Either Doc))) a
@@ -166,6 +170,7 @@ runProofCheck :: Name -> Exp -> Exp -> Env -> Either Doc ()
 runProofCheck n t f env = do
   let ev = (n, f) : (axioms env ++ (map (\ (x, (_, f)) -> (x, f)) $ lemmas env))
       ks = kinds env
+--  error $ show (disp t)
   case runReaderT (runReaderT (proofCheck t) ev) ks of
     Left err -> Left err
     Right f' -> if f' `alphaEq` f then return ()
@@ -221,15 +226,15 @@ proofCheck (App e1 e2)  = do f1 <- proofCheck e1
                                        $$ (nest 2 $ disp f2))
                                  
 
-proofCheck (Lambda x (Just t1) t) = do t <- local (\ y -> (x, t1) : y) (proofCheck t1)
-                                       return $ Imply t1 t
+proofCheck (Lambda x (Just t1) t) = do t' <- local (\ y -> (x, t1) : y) (proofCheck t)
+                                       return $ Imply t1 t'
 
 proofCheck (Lambda x Nothing t) = do
   f <- proofCheck t
   e <- ask
   if isFree x e
     then lift $ lift $ Left $
-         sep [text "proof checking error", text "generalized variable" <+> disp x, text "appears in the assumptions"]
+         sep [text "proof checking error", text "generalized variable" <+> disp x, text "appears in the assumptions", text "when checking the proof", nest 2 $ disp (Lambda x Nothing t), text "current assumption", nest 2 $ disp e ]
     else do
     ks <- lift ask
     (k, sub) <- lift $ lift $ runKinding' (Forall x f) ks
@@ -244,42 +249,28 @@ proofCheck (Lambda x Nothing t) = do
 
 proofCheck (TApp e1 e2)  = do f1 <- proofCheck e1
                               ks <- lift ask
-                              (k1, _) <- lift $ lift $ runKinding' e2 ks
-                              let k = ground k1
-                              if isTerm k then
+                              k <- lift $ lift $ runKinding e2 ks
+                              if isTerm k then 
                                 case f1 of
-                                  Forall x a2 -> do
-                                    (_, subs) <- lift $ lift $ runKinding' a2 ks
-                                    case lookup x subs of
-                                      Nothing -> lift $ lift $ Left $
-                                                 sep [text "proof checking error",
-                                                      text "vacuous abstraction on variable" <+> disp x,
-                                                      text "in the type of" <+> disp e1,
-                                                      text "its kind" <+> disp (Forall x a2)]
-                                      Just k2 -> 
-                                        if ground k2 == k
-                                        then do let res = normalize $ runSubst e2 (Var x) a2
-                                                kindable res ks   
-                                                return res    
-                                        else lift $ lift $ Left $
-                                             sep [text "proof checking error:",
-                                                  text "kind mismatch",
-                                                  text "expected"<+> disp k,
-                                                  text "actual kind" <+> disp (ground k2),
-                                                  text "on the applicant of" <+> disp e1
-                                                  ]
-
-                                  b ->  lift $ lift $ Left $
+                                  Forall x a2 -> 
+                                     do let res = normalize $ runSubst e2 (Var x) a2
+                                        kindable res ks   
+                                        return res    
+                                   
+                                  b -> lift $ lift $ Left $
                                         (text "proof checking error on"
                                          <+> disp e1) $$ (nest 2 $ text "unexpected type:" <+> disp b)
+                                else  lift $ lift $ Left $
+                                      (text "kinding checking error on"
+                                       <+> disp e2) $$ (nest 2 $ text "unexpected kind:" <+> disp k)
                                        
-                                else lift $ lift $ Left $
-                                     sep [text "proof checking error", text "ill-kinded expression:",
-                                          disp e2]
 
+proofCheck a = error $ show (disp a <+> text "from proofCheck function") 
 isFree :: Name -> [(Name, Exp)] -> Bool
-isFree x m = not (null (filter (\ y ->  x `elem` (free (snd y))) m))
-                                       
+isFree x m = let a = (filter (\ y ->  x `elem` (free (snd y))) m) in
+  if not (null a) then error $ show a else False
+
+-- test1 = free $ Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (Const "J") (Var "y"))) (PApp (Var "p") (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "y")))))))
 
 
 

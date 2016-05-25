@@ -2,6 +2,7 @@
 module Main where
 import IProver
 import Cegt.Parser
+import Cegt.Typecheck
 import Cegt.Interaction
 import Cegt.Loop
 import Cegt.Rewrite
@@ -46,7 +47,11 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
                     (Var "dummy", [], ("dummy", Var "dummy", [([],Var "dummy" ,gamma)]), ks)
           case result of
             Nothing -> loop
-            Just (n, p, f) -> lift (modify (extendLemma n p f)) >> loop
+            Just (n, p, f) -> 
+              case runProofCheck n p f env of
+                Left err ->
+                  outputStrLn (show (disp err)) >> loop
+                Right _ -> lift (modify (extendLemma n p f)) >> loop
         Just input | Just rest <- stripPrefix ":outer " input ->
             do let l = words rest
                case l of
@@ -163,10 +168,14 @@ loadFile filename = do cnts <- lift (readFile filename)
                                        env <- get
                                        case interpret env pfs of
                                          Right res -> do
-                                           modify (\ s -> extendLms res s)
-                                           lift $ print (text ("loaded: "++filename))
-                                           env' <- get
-                                           lift $ print (disp env')
+                                           let res' = mapM (\ (n, (p, exp)) -> runProofCheck n p exp env) res
+                                           case res' of
+                                             Left err -> lift $ print (disp err $$ text ("fail to load file "++filename))
+                                             Right _ -> 
+                                                 do modify (\ s -> extendLms res s)
+                                                    lift $ print (text ("loaded: "++filename))
+                                                    env' <- get
+                                                    lift $ print (disp env')
                                          Left err ->
                                            lift $ print (text "error in the proof script:"
                                                          <+> disp err)
