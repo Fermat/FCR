@@ -82,6 +82,10 @@ flatten :: Exp -> [Exp]
 flatten (PApp f1 f2) = flatten f1 ++ [f2]
 flatten a = [a]
 
+flattenK :: Kind -> [Kind]
+flattenK (KArrow f1 f2) =  f1 : flattenK f2
+flattenK a = [a]
+
 
 type BindCxt a = Reader [(Name, Int)] a
 
