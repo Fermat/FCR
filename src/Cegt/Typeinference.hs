@@ -39,21 +39,56 @@ genImitation (Const h) k = do
 hmatch :: MonadPlus m => KSubst -> Exp -> Exp -> StateT Int m [Subst]
 hmatch ks t1 t2 = do
   let t1' = flatten t1
-      t2' = flatten t2'
-      (k1, sub1) = runKinding' t1 ks
+      t2' = flatten t2
+      Right (k1, sub1) = runKinding' t1 ks
+      Right (k2, sub2) = runKinding' t2 ks
   case (t1', t2') of
     ((Const x):xs, (Const y):ys) ->
       if x == y then
         do
           bs <- mapM (\ (x, y) -> hmatch ks x y) (zip xs ys)
           let comps = compL bs
-              res = concat $ map merge' comps
+              res = concat $ map mergeL comps
           return res
       else mzero
-    ((Var x):xs, (Const y):ys) -> 
-       case (lookup x sub1, lookup y ks) of
-         (Nothing, _) -> 
+    ((Var x):xs, (Const y):ys) ->
+      case (lookup x sub1, lookup y (ks++sub2)) of
+        (Nothing, _) -> error $ show (text "unkind variable:" <+> text x)
+        (_, Nothing) -> error $ show (text "unkind constant:" <+> text y)
+        (Just kx, Just ky) ->
+          let kx' = ground kx
+              ky' = ground ky in
+          if kx' == ky' then
+            do
+              n <- get
+              let -- pjs = genProj kx'
+                  (imi, n') = runState (genImitation (Const y) kx') n
+                  renew = normalize $ runSubst imi (Var x) t1
+                  imiAndProj = (renew, t2) : map (\ x -> (x, t2)) xs
+              put n'
+              bs <- mapM (\ (x, y) -> hmatch ks x y) imiAndProj
+              let comps = compL bs
+                  res = concat $ map mergeL comps
+              return res
+            else do
+              let proj = map (\ x -> (x, t2)) xs 
+              bs <- mapM (\ (x, y) -> hmatch ks x y) proj
+              let comps = compL bs
+                  res = concat $ map mergeL comps
+              return res
+    ((Var x):xs, (Var y):ys) ->
+      if x == y then
+        do
+          bs <- mapM (\ (x, y) -> hmatch ks x y) (zip xs ys)
+          let comps = compL bs
+              res = concat $ map mergeL comps
+          return res
+      else mzero
 
+    (x:x':xs, y:y':ys) -> error $ show (text "err" <+> disp x <+> disp y <+> disp x' <+> disp y')
+
+
+            
 mergeL :: [Subst] -> [Subst]
 mergeL l = foldM merge' [] l
 
@@ -67,4 +102,11 @@ compL l = foldl comph [[]] l
 comph :: [[a]] -> [a] -> [[a]]
 comph acc l = [ a1 ++ [a2] | a1 <- acc, a2 <- l]
 
+kenv = [("Z", Star), ("S", KArrow Star Star)]
+t1 = PApp (Var "p") (PApp (PApp (Var "d") (Const "Z")) (Const "Z"))
+t2 = PApp (Var "p1") (PApp (PApp (Var "d") (Const "Z")) (PApp (Const "S") (Const "Z")))
+-- hmatch :: MonadPlus m => KSubst -> Exp -> Exp -> StateT Int m [Subst]
+test1 :: [[Subst]]
+test1 = evalStateT (hmatch kenv t1 t2) 0
+  
 
