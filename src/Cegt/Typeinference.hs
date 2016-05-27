@@ -13,45 +13,47 @@ import Data.List
 import Data.Char
 import Debug.Trace
 
-construction :: Name -> KSubst -> ProofState -> Exp -> [ProofState]
+construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
 
 construction n ks init (Var v) | v /= n =
-  case applyF init v of
-    Just next -> [next]
-    Nothing -> []
+  [s | Just s <- map (\ x -> applyF x v) init]
+      
+  -- case  of
+  --   Just next -> [next]
+  --   Nothing -> []
 
 construction n ks init a@(Lambda x Nothing t) =
   let (vars, b) = (map fst $ viewLVars a, viewLBody a)
-      new = intros init vars 
+      new = map (\ x -> intros x vars) init 
   in construction n ks new b
 
 construction n ks init (App (Const k) p2) =
-  case applyF init k of
-    Just next -> construction n ks next p2
-    Nothing -> []
+  let next = [s | Just s <- map (\ x -> applyF x k) init]
+  in construction n ks next p2
+
 
 construction n ks init (App (Var v) p2) | v /= n =
-  case applyF init v of
-    Just next -> construction n ks next p2
-    Nothing -> []
+  let next = [s | Just s <- map (\ x -> applyF x v) init]
+  in construction n ks next p2
 
+-- [[state]]
 construction n ks init (App (Var v) p2) | v == n =
-  do next <- applyH ks init v
+  do next <- map (\x -> applyH ks x v) init
      construction n ks next p2
 --  x App (App y z) q
-construction n ks init a@(App p1 p2) =
+construction n ks init a@(App p1 p2) = 
   case flatten a of
-    (Var x):y:xs | x /= n ->
-      case applyF init x of
-        Just next -> foldl (\ z x -> construction n ks next) y xs
-        Nothing -> []
-    (Const x):xs | x /= n ->
-      case applyF init x of
-        Just next -> construction n ks next (reApp xs)
-        Nothing -> []
-    (Var x):xs | x == n ->
-      do next <- applyH ks init x 
-         construction n ks next (reApp xs)
+    -- (Var x):y:xs | x /= n ->
+    --   case applyF init x of
+    --     Just next -> foldl (\ z x -> construction n ks next ) y xs
+    --     Nothing -> []
+    -- (Const x):xs | x /= n ->
+    --   case applyF init x of
+    --     Just next -> construction n ks next (reApp xs)
+    --     Nothing -> []
+    (Var v): xs | v == n ->
+      do next <- map (\ x -> applyH ks x v) init 
+         foldl (\ z x -> construction n ks z x) next xs
 --    b@(Lambda x Nothing t):xs -> []
 
 -- construction n ks init a@(App p1 p2) =
