@@ -123,13 +123,38 @@ compL l = foldl comph [[]] l
 comph :: [[a]] -> [a] -> [[a]]
 comph acc l = [ a1 ++ [a2] | a1 <- acc, a2 <- l]
 
+
+wellKind :: [Name] -> KSubst -> [Subst] -> [Subst]
+wellKind vs ks subs = [ s | s <- subs, helper vs s ks]
+  where helper [] y z = True
+        helper (x:xs) y z = case lookup x y of
+                                 Nothing -> False
+                                 Just t  ->
+                                   let (vs, b) = (viewAVars t, viewABody t) in
+                                   case runKinding t ks of
+                                             Left err -> False
+                                             Right k | isTerm k && varOrd vs b -> 
+                                               helper xs y z
+                                                     | otherwise -> False
+                                               
+
+boundVars :: [Name] -> Exp -> [Name]
+boundVars vs (Const x) = []
+boundVars vs (Var x) = if x `elem` vs then [x] else []
+boundVars vs (PApp t1 t2) = boundVars vs t1 ++ boundVars vs t2
+varOrd :: [Name] -> Exp -> Bool
+varOrd vs t = vs == boundVars vs t
+
 kenv = [("Z", Star), ("S", KArrow Star Star)]
 t1 = PApp (Var "p") (PApp (PApp (Var "d") (Const "Z")) (Const "Z"))
 t2 = PApp (Var "p1") (PApp (PApp (Var "d1") (Const "Z")) (PApp (Const "S") (Const "Z")))
 -- hmatch :: MonadPlus m => KSubst -> Exp -> Exp -> StateT Int m [Subst]
 -- test1 :: [[Subst]]
+
 a1 = evalState (hmatch kenv t1 t2) 0
+a2 = wellKind (free t1) kenv a1
 test1 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a1
 test2 = length a1
-  
+test3 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a2
+test4 = length a2
 
