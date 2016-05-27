@@ -92,9 +92,13 @@ type BindCxt a = Reader [(Name, Int)] a
 -- debruijn representation of type 
 debruijn :: Exp -> BindCxt Nameless
 debruijn (Const x) = return $ C x
-debruijn (Var x) = do 
-  Just n <- asks (lookup x) 
-  return $ V n
+
+debruijn (Var x) = do
+  n' <- asks (lookup x)
+  case n' of
+    Just n -> return $ V n
+    Nothing -> error $ show x ++ "what"
+
 
 debruijn (Forall x f) = do 
   a <- local (((x,0):) . plus1) $ debruijn f 
@@ -120,7 +124,7 @@ plus1 = map $ \(x, y) -> (x, y + 1)
 alphaEq :: Exp -> Exp -> Bool
 alphaEq t1 t2 =
     let t1' = foldl' (\t x -> Forall x t) t1 (free t1)
-        t2' = foldl' (\t x -> Forall x t) t2 (free t1) in
+        t2' = foldl' (\t x -> Forall x t) t2 (free t2) in
     runReader (debruijn t1') [] == runReader (debruijn t2') []
 
 

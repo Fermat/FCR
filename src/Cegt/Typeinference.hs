@@ -12,7 +12,7 @@ import Debug.Trace
 -- Second order matching, using Gilles Dowek's terminology in his tutorial.
 -- tips: the less number of higher order variable, the less number of
 -- possible substitution we get. 
-runHMatch ks t1 t2 = let a1 = evalState (hmatch kenv t1 t2) 0 in
+runHMatch ks t1 t2 = let a1 = evalState (hmatch ks t1 t2) 0 in
   wellKind (free t1) ks a1
 
 -- generating projection based on kind
@@ -45,12 +45,12 @@ genImitation head k1 k2 = do
 -- list of success: when hmatch success, it returns [Subst]
 
 hmatch ::  KSubst -> Exp -> Exp -> State Int [Subst]
--- hmatch ks t1 t2 | trace (show (disp t1) ++ "-- " ++show (disp t2)) False = undefined
-hmatch ks t1 t2 = do
+-- hmatch ks t1 t2 | trace (show ( t1) ++ "-- " ++show ( t2)) False = undefined
+hmatch ks t1 t2 | Left err <- runKinding' t1 ks = error $ show err ++ show ks ++ show t1
+hmatch ks t1 t2 | Left err <- runKinding' t2 ks = error $ show err 
+hmatch ks t1 t2 | Right (k1, sub1) <- runKinding' t1 ks, Right (k2, sub2) <- runKinding' t2 ks = do
   let t1' = flatten t1
       t2' = flatten t2
-      Right (k1, sub1) = runKinding' t1 ks
-      Right (k2, sub2) = runKinding' t2 ks
   case (t1', t2') of
     ((Const x):xs, (Const y):ys) ->
       if x == y then
@@ -149,18 +149,25 @@ boundVars vs (PApp t1 t2) = boundVars vs t1 ++ boundVars vs t2
 varOrd :: [Name] -> Exp -> Bool
 varOrd vs t = vs == boundVars vs t
 
-kenv = [("Z", Star), ("S", KArrow Star Star)]
+kenv = [("Z", Star), ("S", KArrow Star Star), ("T", Star)]
 t1 = (PApp (PApp (Var "d") (Const "Z")) (Const "Z"))
 t2 = (PApp (PApp (Var "d1") (Const "Z")) (PApp (Const "S") (Const "Z")))
+t3 = PApp (Const "B") (PApp (Var "l") (PApp (Const "B") (Var "x")))
+t4 = PApp (Const "B") (PApp (Var "l1") (PApp (Const "A") (PApp (Const "B") (Var "y"))))
+t5 = PApp (PApp (PApp (PApp (Var "g") (Const "T")) (Const "T")) (Const "Z")) (PApp (Var "s") (Const "Z"))
+t6 = PApp (PApp (PApp (PApp (Var "g1") (Const "T")) (Const "T")) (PApp (Const "S") (Const "Z")))
+     (PApp (Var "s1") (PApp (Var "s1") (Const "Z")))
 -- hmatch :: MonadPlus m => KSubst -> Exp -> Exp -> StateT Int m [Subst]
 -- test1 :: [[Subst]]
 
 
 a1 = evalState (hmatch kenv t1 t2) 0
 a2 = wellKind (free t1) kenv a1
-a3 = runHMatch kenv t1 t2
+a3 = runHMatch [] (PApp (Var "b") (Var "x")) (PApp (Var "a") (Var "y"))
+a4 = runHMatch [("A", KArrow Star Star), ("B", KArrow Star Star)] t3 t4
+a5 = runHMatch kenv t5 t6
 test1 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a1
 test2 = length a1
-test3 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a3
+test3 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a5
 test4 = length a2
 
