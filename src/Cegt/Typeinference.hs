@@ -2,6 +2,7 @@ module Cegt.Typeinference where
 
 import Cegt.Syntax
 import Cegt.Monad
+import Cegt.Rewrite hiding (merge')
 
 import Cegt.PrettyPrinting
 import Cegt.Typecheck
@@ -9,11 +10,17 @@ import Control.Monad.State
 import Text.PrettyPrint
 import Data.List
 import Debug.Trace
+
+
+
 -- Second order matching, using Gilles Dowek's terminology in his tutorial.
 -- tips: the less number of higher order variable, the less number of
 -- possible substitution we get. 
-runHMatch ks t1 t2 = let a1 = evalState (hmatch ks t1 t2) 0 in
-  wellKind (free t1) ks a1
+runHMatch ks t1 t2 = let a1 = evalState (hmatch ks t1 t2) 0
+                         f1 = free t1
+                         subs = wellKind f1 ks a1
+                     in [ s' | s <- subs, let s' = [ (x, n) | (x, n) <- s, x `elem` f1 ]]
+                     
 
 -- generating projection based on kind
 genProj :: Kind -> [Exp]
@@ -42,8 +49,10 @@ genImitation head k1 k2 = do
                            put n'
                            return res
 
--- list of success: when hmatch success, it returns [Subst]
 
+-- assuming one always rename the bound variable, then we
+-- don't need to worry about hmatch on two same term, otherwise we cannot
+-- distinguish failure from identity                           
 hmatch ::  KSubst -> Exp -> Exp -> State Int [Subst]
 -- hmatch ks t1 t2 | trace (show ( t1) ++ "-- " ++show ( t2)) False = undefined
 hmatch ks t1 t2 | Left err <- runKinding' t1 ks = error $ show err ++ show ks ++ show t1
@@ -114,8 +123,8 @@ hmatch ks t1 t2 | Right (k1, sub1) <- runKinding' t1 ks, Right (k2, sub2) <- run
 mergeL :: [Subst] -> [Subst]
 mergeL l = foldM merge' [] l
 
-merge' :: MonadPlus m => Subst -> Subst -> m Subst
-merge' s1 s2 = if agree then return $ nubBy (\ (n1, _) (n2, _) -> n1 == n2 ) (combine s1 s2) else mzero
+merge' :: Subst -> Subst -> [Subst]
+merge' s1 s2 = if agree then return $ nubBy (\ (n1, _) (n2, _) -> n1 == n2 ) (combine s1 s2) else []
   where agree = all (\ x -> applyE s1 (Var x) `alphaEq` applyE s2 (Var x)) (map fst s1 `intersect` map fst s2) 
 
 
@@ -151,6 +160,7 @@ varOrd vs t = vs == boundVars vs t
 
 kenv = [("Z", Star), ("S", KArrow Star Star), ("T", Star)]
 t1 = (PApp (PApp (Var "d") (Const "Z")) (Const "Z"))
+t1' = (PApp (PApp (Var "d1") (Const "Z")) (Const "Z"))
 t2 = (PApp (PApp (Var "d1") (Const "Z")) (PApp (Const "S") (Const "Z")))
 t3 = PApp (Const "B") (PApp (Var "l") (PApp (Const "B") (Var "x")))
 t4 = PApp (Const "B") (PApp (Var "l1") (PApp (Const "A") (PApp (Const "B") (Var "y"))))
@@ -163,7 +173,7 @@ t6 = PApp (PApp (PApp (PApp (Var "g1") (Const "T")) (Const "T")) (PApp (Const "S
 
 a1 = evalState (hmatch kenv t1 t2) 0
 a2 = wellKind (free t1) kenv a1
-a3 = runHMatch [] (PApp (Var "b") (Var "x")) (PApp (Var "a") (Var "y"))
+a3 = runHMatch [("B", KArrow Star Star), ("A", Star)] (PApp (Const "B") (Var "q")) (PApp (Const "B") (Const "A"))
 a4 = runHMatch [("A", KArrow Star Star), ("B", KArrow Star Star)] t3 t4
 a5 = runHMatch kenv t5 t6
 test1 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a1
