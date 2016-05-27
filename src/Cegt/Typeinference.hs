@@ -46,12 +46,15 @@ hmatch ks t1 t2 = do
       if x == y then
         do
           bs <- mapM (\ (x, y) -> hmatch ks x y) (zip xs ys)
-          
+          let comps = compL bs
+              res = concat $ map merge' comps
+          return res
       else mzero
     ((Var x):xs, (Const y):ys) -> 
+       case (lookup x sub1, lookup y ks) of
+         (Nothing, _) -> 
 
-
-mergeL :: MonadPlus m => [Subst] -> m Subst
+mergeL :: [Subst] -> [Subst]
 mergeL l = foldM merge' [] l
 
 merge' :: MonadPlus m => Subst -> Subst -> m Subst
