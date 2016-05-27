@@ -1,6 +1,7 @@
 module Cegt.Typeinference where
 
 import Cegt.Syntax
+import Cegt.Interaction
 import Cegt.Monad
 import Cegt.Rewrite hiding (merge')
 
@@ -9,9 +10,79 @@ import Cegt.Typecheck
 import Control.Monad.State
 import Text.PrettyPrint
 import Data.List
+import Data.Char
 import Debug.Trace
 
+construction :: Name -> KSubst -> ProofState -> Exp -> [ProofState]
 
+construction n ks init (Var v) | v /= n =
+  case applyF init v of
+    Just next -> [next]
+    Nothing -> []
+
+construction n ks init a@(Lambda x Nothing t) =
+  let (vars, b) = (map fst $ viewLVars a, viewLBody a)
+      new = intros init vars 
+  in construction n ks new b
+
+construction n ks init (App (Const k) p2) =
+  case applyF init k of
+    Just next -> construction n ks next p2
+    Nothing -> []
+
+construction n ks init (App (Var v) p2) | v /= n =
+  case applyF init v of
+    Just next -> construction n ks next p2
+    Nothing -> []
+
+construction n ks init (App (Var v) p2) | v == n =
+  do next <- applyH ks init v
+     construction n ks next p2
+--  x App (App y z) q
+construction n ks init a@(App p1 p2) =
+  case flatten a of
+    (Var x):y:xs | x /= n ->
+      case applyF init x of
+        Just next -> foldl (\ z x -> construction n ks next) y xs
+        Nothing -> []
+    (Const x):xs | x /= n ->
+      case applyF init x of
+        Just next -> construction n ks next (reApp xs)
+        Nothing -> []
+    (Var x):xs | x == n ->
+      do next <- applyH ks init x 
+         construction n ks next (reApp xs)
+--    b@(Lambda x Nothing t):xs -> []
+
+-- construction n ks init a@(App p1 p2) =
+
+      
+-- smart higher order apply using list of success
+applyH :: KSubst -> ProofState -> Name -> [ProofState]
+applyH ks (gn, pf, []) k = []
+applyH ks (gn, pf, (pos, goal, gamma):res) k = 
+  case lookup k gamma of
+    Nothing -> []
+    Just f -> let (vars, head, body) = separate f
+                  fresh = map (\ (v, i) -> v ++ show i ++ "fresh") $ zip vars [1..]
+                  renaming = zip vars (map Var fresh)
+                  body'' = map (applyE renaming) body
+                  head'' = applyE renaming head
+                  ss = runHMatch ks head'' goal -- zip fresh ins
+              in do
+                sub <- ss
+                let body' = map normalize $ (map (applyE sub) body'')
+                    head' = normalize $ applyE sub head''
+                    np = map snd sub  -- ++body'
+                    name = case k of
+                               n:_ -> if isUpper n then Const k else Var k
+                               a -> error "unknow error from apply"
+                    contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
+                    pf' = replace pf pos contm
+                    zeros = makeZeros $ length body'
+                    ps = map (\ x -> pos++x++[1]) zeros
+                    new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
+                return (gn, pf', new++res)  
 
 -- Second order matching, using Gilles Dowek's terminology in his tutorial.
 -- tips: the less number of higher order variable, the less number of

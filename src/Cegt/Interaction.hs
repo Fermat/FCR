@@ -114,9 +114,9 @@ apply (gn, pf, (pos, goal, gamma):res) k ins =
                   head'' = applyE renaming head
                   body' = map normalize $ (map (applyE sub) body'')
                   head' = normalize $ applyE sub head''
-              in if head' /= goal then -- Nothing
-                                       error $ "error apply--" ++ show head' ++ "--" ++ show goal
-                                       ++ show sub ++ "--" ++ show head 
+              in if head' /= goal then Nothing
+                                       -- error $ "error apply--" ++ show head' ++ "--" ++ show goal
+                                       -- ++ show sub ++ "--" ++ show head 
                  else let np = ins -- ++body'
                           name = case k of
                                    n:_ -> if isUpper n then Const k else Var k
@@ -127,6 +127,36 @@ apply (gn, pf, (pos, goal, gamma):res) k ins =
                           ps = map (\ x -> pos++x++[1]) zeros
                           new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
                       in Just (gn, pf', new++res)  
+
+-- smart first order apply for type inference use 
+applyF :: ProofState -> Name -> Maybe ProofState
+applyF (gn, pf, []) k = Nothing
+applyF (gn, pf, (pos, goal, gamma):res) k = 
+  case lookup k gamma of
+    Nothing -> Nothing
+    Just f -> let (vars, head, body) = separate f
+                  fresh = map (\ (v, i) -> v ++ show i ++ "fresh") $ zip vars [1..]
+                  renaming = zip vars (map Var fresh)
+                  body'' = map (applyE renaming) body
+                  head'' = applyE renaming head
+                  ss = match head'' goal -- zip fresh ins
+              in
+               case ss of
+                 Nothing -> Nothing
+                 Just sub -> 
+                   let body' = map (applyE sub) body''
+                       head' = applyE sub head''
+                       np = map snd sub  -- ++body'
+                       name = case k of
+                               n:_ -> if isUpper n then Const k else Var k
+                               a -> error "unknow error from apply"
+                       contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
+                       pf' = replace pf pos contm
+                       zeros = makeZeros $ length body'
+                       ps = map (\ x -> pos++x++[1]) zeros
+                       new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
+                   in Just (gn, pf', new++res)  
+
 
 use :: ProofState -> Name -> [Exp] -> Maybe ProofState
 use (gn, pf, []) k ins = Just (gn, pf, [])
