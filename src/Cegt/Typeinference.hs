@@ -8,6 +8,7 @@ import Cegt.Typecheck
 import Control.Monad.State
 import Text.PrettyPrint
 import Data.List
+import Debug.Trace
 -- Second order matching, using Gilles Dowek's terminology in his tutorial.
 -- generating projection based on kind
 genProj :: Kind -> [Exp]
@@ -18,11 +19,13 @@ genProj k = let ks = flattenK k
                         ts = map (\ z -> foldr (\ x y -> Abs x y) (Var z) vars) vars
                     in ts
 
-genImitation :: Exp -> Kind -> State Int Exp
-genImitation head k = do
+-- k1 is for kind of head, k2 is for the kind
+genImitation :: Exp -> Kind -> Kind -> State Int Exp
+genImitation head k1 k2 = do
                            n <- get
-                           let arity = (length (flattenK k)) - 1
-                               l = take arity [n..]
+                           let arity = (length (flattenK k2)) - 1
+                               arity' = (length (flattenK k1)) - 1 
+                               l = take arity' [n..]
                                lb = take arity [1..]
                                n' = n + arity
                                fvars = map (\ x -> "h" ++ show x) l
@@ -37,6 +40,7 @@ genImitation head k = do
 -- list of success: when hmatch success, it returns [Subst]
 
 hmatch ::  KSubst -> Exp -> Exp -> State Int [Subst]
+-- hmatch ks t1 t2 | trace (show (disp t1) ++ "-- " ++show (disp t2)) False = undefined
 hmatch ks t1 t2 = do
   let t1' = flatten t1
       t2' = flatten t2
@@ -58,11 +62,10 @@ hmatch ks t1 t2 = do
         (Just kx, Just ky) ->
           let kx' = ground kx
               ky' = ground ky in
-          if kx' == ky' then
             do
               n <- get
               let pjs = genProj kx'
-                  (imi, n') = runState (genImitation (Const y) kx') n
+                  (imi, n') = runState (genImitation (Const y) ky' kx') n
                   renew = normalize $ runSubst imi (Var x) t1
                   imiAndProj = (renew, t2) : map (\ x -> (x, t2)) xs
                   oldsubst = [(x, imi)]: map (\ y -> [(x,y)]) pjs
@@ -71,15 +74,6 @@ hmatch ks t1 t2 = do
               let
                 ps = zip bs oldsubst
                 res = map (\ (x, y) -> map (\z -> concat $ merge' z y) x) ps
-              return (concat res)
-              
-          else do
-              let proj = map (\ x -> (x, t2)) xs
-                  pjs = genProj kx'
-                  oldsubst = map (\ y -> [(x,y)]) pjs
-              bs <- mapM (\ (x, y) -> hmatch ks x y) proj
-              let ps = zip bs oldsubst
-                  res = map (\ (x, y) -> map (\z -> concat $ merge' z y) x) ps
               return (concat res)
     ((Var x):xs, (Var y):ys) | x == y ->
         do
@@ -94,11 +88,10 @@ hmatch ks t1 t2 = do
             (Just kx, Just ky) ->
               let kx' = ground kx
                   ky' = ground ky in
-              if kx' == ky' then
                 do
                   n <- get
                   let pjs = genProj kx'
-                      (imi, n') = runState (genImitation (Var y) kx') n
+                      (imi, n') = runState (genImitation (Var y) ky' kx') n
                       renew = normalize $ runSubst imi (Var x) t1
                       imiAndProj = (renew, t2) : map (\ x -> (x, t2)) xs
                       oldsubst = [(x, imi)]: map (\ y -> [(x,y)]) pjs
@@ -108,14 +101,6 @@ hmatch ks t1 t2 = do
                     ps = zip bs oldsubst
                     res = map (\ (x, y) -> map (\z -> concat $ merge' z y) x) ps
                   return (concat res)
-              else do
-                let proj = map (\ x -> (x, t2)) xs
-                    pjs = genProj kx'
-                    oldsubst = map (\ y -> [(x,y)]) pjs
-                bs <- mapM (\ (x, y) -> hmatch ks x y) proj
-                let ps = zip bs oldsubst
-                    res = map (\ (x, y) -> map (\z -> concat $ merge' z y) x) ps
-                return (concat res)
 
     (x, y) -> return [] -- error $ show x ++ show y -- (text "err" <+> disp x <+> disp y <+> disp x' <+> disp y')
 
@@ -130,7 +115,7 @@ merge' s1 s2 = if agree then return $ nubBy (\ (n1, _) (n2, _) -> n1 == n2 ) (co
 
 
 combine s2 s1 =
-   s2 ++ [(v, applyE s2 t) | (v, t) <- s1] 
+   s2 ++ [(v, normalize $ applyE s2 t) | (v, t) <- s1] 
 
 compL :: [[a]] -> [[a]]
 compL l = foldl comph [[]] l
@@ -140,9 +125,11 @@ comph acc l = [ a1 ++ [a2] | a1 <- acc, a2 <- l]
 
 kenv = [("Z", Star), ("S", KArrow Star Star)]
 t1 = PApp (Var "p") (PApp (PApp (Var "d") (Const "Z")) (Const "Z"))
-t2 = PApp (Var "p1") (PApp (PApp (Var "d") (Const "Z")) (PApp (Const "S") (Const "Z")))
+t2 = PApp (Var "p1") (PApp (PApp (Var "d1") (Const "Z")) (PApp (Const "S") (Const "Z")))
 -- hmatch :: MonadPlus m => KSubst -> Exp -> Exp -> StateT Int m [Subst]
 -- test1 :: [[Subst]]
-test1 = evalState (hmatch kenv t1 t2) 0
+a1 = evalState (hmatch kenv t1 t2) 0
+test1 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a1
+test2 = length a1
   
 
