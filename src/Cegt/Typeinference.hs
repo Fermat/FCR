@@ -10,6 +10,11 @@ import Text.PrettyPrint
 import Data.List
 import Debug.Trace
 -- Second order matching, using Gilles Dowek's terminology in his tutorial.
+-- tips: the less number of higher order variable, the less number of
+-- possible substitution we get. 
+runHMatch ks t1 t2 = let a1 = evalState (hmatch kenv t1 t2) 0 in
+  wellKind (free t1) ks a1
+
 -- generating projection based on kind
 genProj :: Kind -> [Exp]
 genProj k = let ks = flattenK k
@@ -137,7 +142,6 @@ wellKind vs ks subs = [ s | s <- subs, helper vs s ks]
                                                helper xs y z
                                                      | otherwise -> False
                                                
-
 boundVars :: [Name] -> Exp -> [Name]
 boundVars vs (Const x) = []
 boundVars vs (Var x) = if x `elem` vs then [x] else []
@@ -146,15 +150,17 @@ varOrd :: [Name] -> Exp -> Bool
 varOrd vs t = vs == boundVars vs t
 
 kenv = [("Z", Star), ("S", KArrow Star Star)]
-t1 = PApp (Var "p") (PApp (PApp (Var "d") (Const "Z")) (Const "Z"))
-t2 = PApp (Var "p1") (PApp (PApp (Var "d1") (Const "Z")) (PApp (Const "S") (Const "Z")))
+t1 = (PApp (PApp (Var "d") (Const "Z")) (Const "Z"))
+t2 = (PApp (PApp (Var "d1") (Const "Z")) (PApp (Const "S") (Const "Z")))
 -- hmatch :: MonadPlus m => KSubst -> Exp -> Exp -> StateT Int m [Subst]
 -- test1 :: [[Subst]]
 
+
 a1 = evalState (hmatch kenv t1 t2) 0
 a2 = wellKind (free t1) kenv a1
+a3 = runHMatch kenv t1 t2
 test1 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a1
 test2 = length a1
-test3 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a2
+test3 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a3
 test4 = length a2
 
