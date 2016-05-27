@@ -150,3 +150,7 @@ merge :: MonadPlus m => Subst -> Subst -> m Subst
 merge s1 s2 = if agree then return $ nub (s1 ++ s2) else mzero
   where agree = all (\ x -> applyE s1 (Var x) == applyE s2 (Var x)) (map fst s1 `intersect` map fst s2) 
 
+merge' :: MonadPlus m => Subst -> Subst -> m Subst
+merge' s1 s2 = if agree then return $ nubBy (\ (n1, _) (n2, _) -> n1 == n2 ) (s1 ++ s2) else mzero
+  where agree = all (\ x -> applyE s1 (Var x) `alphaEq` applyE s2 (Var x)) (map fst s1 `intersect` map fst s2) 
+
