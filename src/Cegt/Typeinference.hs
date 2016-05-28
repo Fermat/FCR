@@ -260,9 +260,9 @@ boundVars vs (PApp t1 t2) = boundVars vs t1 ++ boundVars vs t2
 varOrd :: [Name] -> Exp -> Bool
 varOrd vs t = vs == boundVars vs t
 
-kenv = [("Z", Star), ("S", KArrow Star Star), ("T", Star)]
-t1 = (PApp (PApp (Var "d") (Const "Z")) (Const "Z"))
-t1' = (PApp (PApp (Var "d1") (Const "Z")) (Const "Z"))
+kenv = [("Z", Star), ("S", KArrow Star Star), ("T", Star), ("d", KArrow Star (KArrow Star Star))]
+t1 = PApp (Var "p") (PApp (PApp (Const "d") (Const "Z")) (Const "Z"))
+t1' = PApp (Var "p1") (PApp (PApp (Const "d") (Const "Z")) (Const "Z"))
 t2 = (PApp (PApp (Var "d1") (Const "Z")) (PApp (Const "S") (Const "Z")))
 t3 = PApp (Const "B") (PApp (Var "l") (PApp (Const "B") (Var "x")))
 t4 = PApp (Const "B") (PApp (Var "l1") (PApp (Const "A") (PApp (Const "B") (Var "y"))))
@@ -273,12 +273,12 @@ t6 = PApp (PApp (PApp (PApp (Var "g1") (Const "T")) (Const "T")) (PApp (Const "S
 -- test1 :: [[Subst]]
 
 
-a1 = evalState (hmatch kenv t1 t2) 0
-a2 = wellKind (free t1) kenv a1
+a1 = evalState (hmatch kenv t1' t1) 0
+a2 = wellKind (free t1') kenv a1
 a3 = runHMatch [("B", KArrow Star Star), ("A", Star)] (PApp (Const "B") (Var "q")) (PApp (Const "B") (Const "A"))
 a4 = runHMatch [("A", KArrow Star Star), ("B", KArrow Star Star)] t3 t4
 a5 = runHMatch kenv t5 t6
-test1 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a1
+test1 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a2
 test2 = length a1
 test3 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a4
 test4 = length a2
