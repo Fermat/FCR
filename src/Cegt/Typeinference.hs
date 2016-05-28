@@ -13,14 +13,31 @@ import Data.List
 import Data.Char
 import Debug.Trace
 
-construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
+env2 = [("H", KArrow Star (KArrow Star Star)), ("J", KArrow Star Star), ("G", KArrow Star Star), ("S", KArrow Star Star)]
+exp1 = (Lambda "a1" Nothing
+        (Lambda "a2" Nothing
+         (Lambda "a3" Nothing
+          (App (Var "a3")
+           (App (Var "a1")
+            (App (Var "a2")
+             (App (App (App (Var "h")
+                        (Lambda "b1" Nothing (App (Var "a1") (App (Var "a2") (Var "b1")))))
+                   (Var "a2"))
+              (Var "a3"))))))))
 
-construction n ks init (Var v) | v /= n =
-  [s | Just s <- map (\ x -> applyF x v) init]
-      
-  -- case  of
-  --   Just next -> [next]
-  --   Nothing -> []
+f1 = Forall "p'" (Forall "f" (Forall "x" (Forall "z" (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z"))))) (PApp (Var "p") (PApp (PApp (Var "f") (Var "x")) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "y")))) (PApp (Var "p") (PApp (PApp (Const "H") (PApp (Const "S") (Var "x"))) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (Const "J") (Var "y"))) (PApp (Var "p") (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "y")))))))) (PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z")))))))))))
+
+initstate1 = [("h", f1, [([], f1, [])])]
+man1 = [s | s <- construction "h" env2 initstate1 exp1, success s]
+
+success :: ProofState -> Bool
+success (gn,pf,[]) = True
+success _ = False
+
+construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
+construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp)) False = undefined
+construction n ks init (Var v) =
+  [s | Just s <- map (\ x -> useF x v) init]
 
 construction n ks init a@(Lambda x Nothing t) =
   let (vars, b) = (map fst $ viewLVars a, viewLBody a)
@@ -43,18 +60,10 @@ construction n ks init (App (Var v) p2) | v == n =
 --  x App (App y z) q
 construction n ks init a@(App p1 p2) = 
   case flatten a of
-    -- (Var x):y:xs | x /= n ->
-    --   case applyF init x of
-    --     Just next -> foldl (\ z x -> construction n ks next ) y xs
-    --     Nothing -> []
-    -- (Const x):xs | x /= n ->
-    --   case applyF init x of
-    --     Just next -> construction n ks next (reApp xs)
-    --     Nothing -> []
     (Var v): xs | v == n ->
       do next <- map (\ x -> applyH ks x v) init 
          foldl (\ z x -> construction n ks z x) next xs
---    b@(Lambda x Nothing t):xs -> []
+
 
 -- construction n ks init a@(App p1 p2) =
 

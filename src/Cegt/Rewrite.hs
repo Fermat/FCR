@@ -143,6 +143,11 @@ match (PApp t1 t2) (PApp t1' t2') = do
   s1 <- match t1 t1'
   s2 <- match t2 t2'
   merge s1 s2
+match (Imply t1 t2) (Imply t1' t2') = do
+  s1 <- match t1 t1'
+  s2 <- match t2 t2'
+  merge s1 s2
+  
 match (Const s) (Const t) | s == t = return []
 match _ _ = mzero
 

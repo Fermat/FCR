@@ -134,28 +134,39 @@ applyF (gn, pf, []) k = Nothing
 applyF (gn, pf, (pos, goal, gamma):res) k = 
   case lookup k gamma of
     Nothing -> Nothing
-    Just f -> let (vars, head, body) = separate f
+    Just f -> let (vars, head, body) = separate f in
+              if null vars then
+                if f == goal then
+                  let
+                    name = case k of
+                       n:_ -> if isUpper n then Const k else Var k
+                       a -> error "unknow error from applyF"
+                    pf' = replace pf pos name
+                  in Just (gn, pf', res)  
+                else Nothing
+              else
+                let  
                   fresh = map (\ (v, i) -> v ++ show i ++ "fresh") $ zip vars [1..]
                   renaming = zip vars (map Var fresh)
                   body'' = map (applyE renaming) body
                   head'' = applyE renaming head
                   ss = match head'' goal -- zip fresh ins
-              in
-               case ss of
-                 Nothing -> Nothing
-                 Just sub -> 
-                   let body' = map (applyE sub) body''
-                       head' = applyE sub head''
-                       np = map snd sub  -- ++body'
-                       name = case k of
-                               n:_ -> if isUpper n then Const k else Var k
-                               a -> error "unknow error from apply"
-                       contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
-                       pf' = replace pf pos contm
-                       zeros = makeZeros $ length body'
-                       ps = map (\ x -> pos++x++[1]) zeros
-                       new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
-                   in Just (gn, pf', new++res)  
+                in
+                 case ss of
+                   Nothing -> Nothing
+                   Just sub -> 
+                     let body' = map (applyE sub) body''
+                         head' = applyE sub head''
+                         np = map snd sub  -- ++body'
+                         name = case k of
+                                 n:_ -> if isUpper n then Const k else Var k
+                                 a -> error "unknow error from apply"
+                         contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
+                         pf' = replace pf pos contm
+                         zeros = makeZeros $ length body'
+                         ps = map (\ x -> pos++x++[1]) zeros
+                         new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
+                     in Just (gn, pf', new++res)  
 
 
 use :: ProofState -> Name -> [Exp] -> Maybe ProofState
@@ -181,6 +192,46 @@ use (gn, pf, (pos, goal, gamma):res) k ins =
                        pf' = replace pf pos contm
                    in Just (gn, pf', res)  
 
+-- smart first order use
+useF :: ProofState -> Name -> Maybe ProofState
+useF (gn, pf, []) k = Nothing
+useF (gn, pf, (pos, goal, gamma):res) k = 
+  case lookup k gamma of
+    Nothing -> Nothing
+    Just f -> let (vars, bare) = getVars f in
+              if null vars then
+                if f == goal then
+                  let
+                    name = case k of
+                       n:_ -> if isUpper n then Const k else Var k
+                       a -> error "unknow error from useF"
+                    pf' = replace pf pos name
+                  in Just (gn, pf', res)  
+                else Nothing
+              else
+              let   
+                  (varsG, bareG) = getVars goal
+                  fresh = map (\ (v, i) -> v ++ show i ++ "fresh") $ zip vars [1..]
+                  renaming = zip vars (map Var fresh)
+                  b'' = applyE renaming bare
+                  ss = match b'' bareG in
+              case ss of
+                Nothing -> Nothing
+                Just sub -> 
+                  let
+                    ins = map snd sub
+                    b' = applyE sub b''
+                    newVar = permutations $ free b'
+                    fs' = [  f1  | vs <- newVar, let f1 = foldl' (\t x -> Forall x t) b' vs,
+                             f1 `alphaEq` goal]
+                  in if null fs' then Nothing
+                 else 
+                   let name = case k of
+                                   n:_ -> if isUpper n then Const k else Var k
+                                   a -> error "unknow error from use"
+                       contm = foldl' (\ z x -> TApp z x) name ins
+                       pf' = replace pf pos contm
+                   in Just (gn, pf', res)  
                    
                    
 

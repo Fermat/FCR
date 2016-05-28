@@ -2,7 +2,10 @@ K1 : F x y ~> F (S x) (G (H x Z))
 K2 : H (S x) y ~> H x (S y)
 K3 : G (H x y) ~> J y
 
-lemma h : forall p' f x z . (forall p x y . p (f (S x) (G (H x z))) => p (f x y)) => (forall p x y . p (H x (S y)) => p (H (S x) y)) => (forall p x y . p (J y) => p (G (H x y))) => p' (f (S x) (G (H x z)))
+lemma h : forall p' f x z . (forall p x y . p (f (S x) (G (H x z))) => p (f x y)) => 
+                               (forall p x y . p (H x (S y)) => p (H (S x) y)) => 
+                                  (forall p x y . p (J y) => p (G (H x y))) => 
+                                      p' (f (S x) (G (H x z)))
 proof
 coind
 intros a1 a2 a3
@@ -17,3 +20,13 @@ apply b1
 use a2
 use a3
 qed
+
+{-
+h : forall p' f x z . (forall p x y . p (f (S x) (G (H x z))) => p (f x y)) => 
+                          (forall p x y . p (H x (S y)) => p (H (S x) y)) => 
+                              (forall p x y . p (J y) => p (G (H x y))) => 
+                                   p' (f (S x) (G (H x z)))
+
+h a1 a2 a3 = a3 (a1 (a2 (h (\ b1 . a1 (a2 b1)) a2 a3)))
+-}
+ 
