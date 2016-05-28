@@ -194,7 +194,8 @@ use (gn, pf, (pos, goal, gamma):res) k ins =
 
 -- smart first order use
 useF :: ProofState -> Name -> Maybe ProofState
-useF (gn, pf, []) k = Nothing
+-- useF init exp | trace (show () ++ "-- " ++show (disp exp)) False = undefined
+useF (gn, pf, []) k = Nothing -- error "opps"
 useF (gn, pf, (pos, goal, gamma):res) k = 
   case lookup k gamma of
     Nothing -> Nothing
@@ -214,9 +215,10 @@ useF (gn, pf, (pos, goal, gamma):res) k =
                   fresh = map (\ (v, i) -> v ++ show i ++ "fresh") $ zip vars [1..]
                   renaming = zip vars (map Var fresh)
                   b'' = applyE renaming bare
-                  ss = match b'' bareG in
+                  ss = match b'' bareG in -- note: useF can not be used if the
+                                          -- formula contains quantifiers within its body
               case ss of
-                Nothing -> Nothing
+                Nothing -> Nothing -- error $ "well" ++ show b'' ++ "--" ++ show bareG -- 
                 Just sub -> 
                   let
                     ins = map snd sub
@@ -263,3 +265,8 @@ make n | n > 0 = take (n-1) stream
                                                     
 -- PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z"))))
 -- PApp (Forall "y" (PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (Var "y")))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z")))
+{-
+ha1 = Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Var "f2fresh") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z4fresh"))))) (PApp (Var "p") (PApp (PApp (Var "f2fresh") (Var "x")) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "y")))) (PApp (Var "p") (PApp (PApp (Const "H") (PApp (Const "S") (Var "x"))) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (Const "J") (Var "y"))) (PApp (Var "p") (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "y")))))))) (PApp (Var "p'1fresh") (PApp (PApp (Var "f2fresh") (PApp (Const "S") (Var "x3fresh"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x3fresh")) (Var "z4fresh")))))))
+
+ha2 = Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z"))))) (PApp (Var "p") (PApp (PApp (Var "f") (Var "x")) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "y")))) (PApp (Var "p") (PApp (PApp (Const "H") (PApp (Const "S") (Var "x"))) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (Const "J") (Var "y"))) (PApp (Var "p") (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "y")))))))) (PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z"))))))) 
+-}

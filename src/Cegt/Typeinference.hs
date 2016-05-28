@@ -27,19 +27,23 @@ exp1 = (Lambda "a1" Nothing
 
 f1 = Forall "p'" (Forall "f" (Forall "x" (Forall "z" (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z"))))) (PApp (Var "p") (PApp (PApp (Var "f") (Var "x")) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "y")))) (PApp (Var "p") (PApp (PApp (Const "H") (PApp (Const "S") (Var "x"))) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (Const "J") (Var "y"))) (PApp (Var "p") (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "y")))))))) (PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z")))))))))))
 
-initstate1 = [("h", f1, [([], f1, [])])]
-man1 = [s | s <- construction "h" env2 initstate1 exp1, success s]
+g2 = PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (PApp (Const "S") (Var "x")))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "z")))))
 
-g1 = PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z"))))
-g1' = PApp (Var "p''") (PApp (PApp (Var "f'") (PApp (Const "S") (Var "x'"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x'")) (Var "z'"))))
-h1 = PApp (Var "p1") (PApp (Const "G") (PApp (PApp (Const "H") (Var "x2")) (Var "y3")))
+h2 = PApp (Var "p1fresh") (PApp (PApp (Const "H") (PApp (Const "S") (Var "x2fresh"))) (Var "y3fresh"))
+initstate1 = [("h", f1, [([], f1, [("h", f1)])])]
+man1 = construction "h" env2 initstate1 exp1 -- [s | s <- construction "h" env2 initstate1 exp1, success s]
+man3 = construction "h" env2 initstate1 (Var "h")
+
+g1 = PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (PApp (Const "S") (Var "x")))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "z")))))
+
+h1 = PApp (Var "p'1") (PApp (PApp (Var "f2") (PApp (Const "S") (Var "x3"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x3")) (Var "z4"))))
 man2 = runHMatch env2 h1 g1 
 success :: ProofState -> Bool
 success (gn,pf,[]) = True
 success _ = False
 
 construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
-construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp) ++ "\n" ++ show init) False = undefined
+construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp)) False = undefined
 construction n ks init (Var v) =
   [s | Just s <- map (\ x -> useF x v) init]
 
@@ -65,7 +69,7 @@ construction n ks init (App (Var v) p2) | v /= n =
         construction n ks nex p2
    else construction n ks next p2
 
--- [[state]]
+-- Has bug
 construction n ks init (App (Var v) p2) | v == n =
   do next <-  map (\x -> applyH ks x v) init
      
@@ -75,7 +79,7 @@ construction n ks init a@(App p1 p2) =
   case flatten a of
     (Var v): xs | v == n ->
       do next <- map (\ x -> applyH ks x v) init 
-         foldl (\ z x -> construction n ks z x) next xs
+         foldr (\ z x -> construction n ks x z) next xs
 
 
 -- construction n ks init a@(App p1 p2) =
@@ -83,7 +87,7 @@ construction n ks init a@(App p1 p2) =
       
 -- smart higher order apply using list of success
 applyH :: KSubst -> ProofState -> Name -> [ProofState]
-applyH ks init k | trace (show ( init) ++ "--ha " ++show (disp k)) False = undefined
+-- applyH ks init k | trace ("--applyH " ++show (disp k)) False = undefined
 applyH ks (gn, pf, []) k = []
 applyH ks (gn, pf, (pos, goal, gamma):res) k = 
   case lookup k gamma of
@@ -93,9 +97,9 @@ applyH ks (gn, pf, (pos, goal, gamma):res) k =
                   renaming = zip vars (map Var fresh)
                   body'' = map (applyE renaming) body
                   head'' = applyE renaming head
-                  ss = trace (show head''++ "from rhm") $ runHMatch ks head'' goal -- zip fresh ins
+                  ss = trace (show head''++ "--from rhm--"++ show goal ++ show k) $ runHMatch ks head'' goal -- 
               in do
-                sub <- trace (show ss ++ "this is ss")$ ss
+                sub <-  ss -- trace (show ss ++ "this is ss")$
                 let body' = map normalize $ (map (applyE sub) body'')
                     head' = normalize $ applyE sub head''
                     np = map snd sub  -- ++body'
@@ -114,8 +118,8 @@ applyH ks (gn, pf, (pos, goal, gamma):res) k =
 -- possible substitution we get. 
 runHMatch ks t1 t2 = let a1 = evalState (hmatch ks t1 t2) 0
                          f1 = free t1
-                         -- subs = wellKind f1 ks a1
-                     in a1 -- [ s' | s <- subs, let s' = [ (x, n) | (x, n) <- s, x `elem` f1 ]]
+                         subs = wellKind f1 ks a1
+                     in [ s' | s <- subs, let s' = [ (x, n) | (x, n) <- s, x `elem` f1 ]]
                      
 
 -- generating projection based on kind
@@ -136,7 +140,7 @@ genImitation head k1 k2 = do
                                l = take arity' [n..]
                                lb = take arity [1..]
                                n' = n + arity'
-                               fvars = map (\ x -> "h" ++ show x) l
+                               fvars = map (\ x -> "hd" ++ show x) l
                                bvars = map (\ x -> "b" ++ show x) lb
                                bvars' = map Var bvars
                                args = map (\ c -> (foldl' (\ z x -> PApp z x) (Var c) bvars')) fvars
@@ -278,4 +282,4 @@ test1 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a1
 test2 = length a1
 test3 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a4
 test4 = length a2
-
+test5 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ man2
