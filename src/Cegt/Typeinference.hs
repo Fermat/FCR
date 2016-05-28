@@ -30,12 +30,16 @@ f1 = Forall "p'" (Forall "f" (Forall "x" (Forall "z" (Imply (Forall "p" (Forall 
 initstate1 = [("h", f1, [([], f1, [])])]
 man1 = [s | s <- construction "h" env2 initstate1 exp1, success s]
 
+g1 = PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z"))))
+g1' = PApp (Var "p''") (PApp (PApp (Var "f'") (PApp (Const "S") (Var "x'"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x'")) (Var "z'"))))
+h1 = PApp (Var "p1") (PApp (Const "G") (PApp (PApp (Const "H") (Var "x2")) (Var "y3")))
+man2 = runHMatch env2 h1 g1 
 success :: ProofState -> Bool
 success (gn,pf,[]) = True
 success _ = False
 
 construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
-construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp)) False = undefined
+construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp) ++ "\n" ++ show init) False = undefined
 construction n ks init (Var v) =
   [s | Just s <- map (\ x -> useF x v) init]
 
@@ -46,16 +50,25 @@ construction n ks init a@(Lambda x Nothing t) =
 
 construction n ks init (App (Const k) p2) =
   let next = [s | Just s <- map (\ x -> applyF x k) init]
-  in construction n ks next p2
+  in
+   if null next then
+     do nex <-  map (\x -> applyH ks x k) init
+        construction n ks nex p2
+   else construction n ks next p2
 
 
 construction n ks init (App (Var v) p2) | v /= n =
   let next = [s | Just s <- map (\ x -> applyF x v) init]
-  in construction n ks next p2
+  in
+   if null next then
+     do nex <-  map (\x -> applyH ks x v) init
+        construction n ks nex p2
+   else construction n ks next p2
 
 -- [[state]]
 construction n ks init (App (Var v) p2) | v == n =
-  do next <- map (\x -> applyH ks x v) init
+  do next <-  map (\x -> applyH ks x v) init
+     
      construction n ks next p2
 --  x App (App y z) q
 construction n ks init a@(App p1 p2) = 
@@ -70,6 +83,7 @@ construction n ks init a@(App p1 p2) =
       
 -- smart higher order apply using list of success
 applyH :: KSubst -> ProofState -> Name -> [ProofState]
+applyH ks init k | trace (show ( init) ++ "--ha " ++show (disp k)) False = undefined
 applyH ks (gn, pf, []) k = []
 applyH ks (gn, pf, (pos, goal, gamma):res) k = 
   case lookup k gamma of
@@ -79,9 +93,9 @@ applyH ks (gn, pf, (pos, goal, gamma):res) k =
                   renaming = zip vars (map Var fresh)
                   body'' = map (applyE renaming) body
                   head'' = applyE renaming head
-                  ss = runHMatch ks head'' goal -- zip fresh ins
+                  ss = trace (show head''++ "from rhm") $ runHMatch ks head'' goal -- zip fresh ins
               in do
-                sub <- ss
+                sub <- trace (show ss ++ "this is ss")$ ss
                 let body' = map normalize $ (map (applyE sub) body'')
                     head' = normalize $ applyE sub head''
                     np = map snd sub  -- ++body'
@@ -100,8 +114,8 @@ applyH ks (gn, pf, (pos, goal, gamma):res) k =
 -- possible substitution we get. 
 runHMatch ks t1 t2 = let a1 = evalState (hmatch ks t1 t2) 0
                          f1 = free t1
-                         subs = wellKind f1 ks a1
-                     in [ s' | s <- subs, let s' = [ (x, n) | (x, n) <- s, x `elem` f1 ]]
+                         -- subs = wellKind f1 ks a1
+                     in a1 -- [ s' | s <- subs, let s' = [ (x, n) | (x, n) <- s, x `elem` f1 ]]
                      
 
 -- generating projection based on kind
@@ -121,7 +135,7 @@ genImitation head k1 k2 = do
                                arity' = (length (flattenK k1)) - 1 
                                l = take arity' [n..]
                                lb = take arity [1..]
-                               n' = n + arity
+                               n' = n + arity'
                                fvars = map (\ x -> "h" ++ show x) l
                                bvars = map (\ x -> "b" ++ show x) lb
                                bvars' = map Var bvars
@@ -136,7 +150,7 @@ genImitation head k1 k2 = do
 -- don't need to worry about hmatch on two same term, otherwise we cannot
 -- distinguish failure from identity                           
 hmatch ::  KSubst -> Exp -> Exp -> State Int [Subst]
--- hmatch ks t1 t2 | trace (show ( t1) ++ "-- " ++show ( t2)) False = undefined
+-- hmatch ks t1 t2 | trace ("(" ++show (disp t1) ++ " --hmatch " ++show (disp t2)++")") False = undefined
 hmatch ks t1 t2 | Left err <- runKinding' t1 ks = error $ show err ++ show ks ++ show t1
 hmatch ks t1 t2 | Left err <- runKinding' t2 ks = error $ show err 
 hmatch ks t1 t2 | Right (k1, sub1) <- runKinding' t1 ks, Right (k2, sub2) <- runKinding' t2 ks = do
@@ -198,7 +212,7 @@ hmatch ks t1 t2 | Right (k1, sub1) <- runKinding' t1 ks, Right (k2, sub2) <- run
                     res = map (\ (x, y) -> map (\z -> concat $ merge' z y) x) ps
                   return (concat res)
 
-    (x, y) -> return [] -- error $ show x ++ show y -- (text "err" <+> disp x <+> disp y <+> disp x' <+> disp y')
+    (x, y) -> return [] -- error $ show x ++ show y -- (text "err" <+> disp x <+> disp y <+> disp x' <+> disp y')-- 
 
 
             
@@ -206,8 +220,10 @@ mergeL :: [Subst] -> [Subst]
 mergeL l = foldM merge' [] l
 
 merge' :: Subst -> Subst -> [Subst]
-merge' s1 s2 = if agree then return $ nubBy (\ (n1, _) (n2, _) -> n1 == n2 ) (combine s1 s2) else []
-  where agree = all (\ x -> applyE s1 (Var x) `alphaEq` applyE s2 (Var x)) (map fst s1 `intersect` map fst s2) 
+merge' s1 s2 = if agree then return $ nubBy (\ (n1, _) (n2, _) -> n1 == n2 ) (combine s1 s2)
+               else [] -- error $ "hamerge'" ++ show (disp s1) ++ "mmm" ++ show (disp s2) 
+  where agree = 
+          all (\ x -> normalize (applyE s1 (Var x)) `alphaEq` normalize (applyE s2 (Var x))) (map fst s1 `intersect` map fst s2) 
 
 
 combine s2 s1 =
@@ -260,6 +276,6 @@ a4 = runHMatch [("A", KArrow Star Star), ("B", KArrow Star Star)] t3 t4
 a5 = runHMatch kenv t5 t6
 test1 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a1
 test2 = length a1
-test3 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a5
+test3 = sep $ map (\ x -> text "[" <+> disp x <+> text "]") $ a4
 test4 = length a2
 

@@ -176,7 +176,7 @@ loadFile filename = do cnts <- lift (readFile filename)
                                                     lift $ print (text ("loaded: "++filename))
                                                     env' <- get
                                                     lift $ print (disp env')
-                                                    lift $ print (disp (lemmas env'))
+                                                    -- lift $ print (disp (lemmas env'))
                                          Left err ->
                                            lift $ print (text "error in the proof script:"
                                                          <+> disp err)
