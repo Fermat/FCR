@@ -95,8 +95,14 @@ var = do
 
 con :: Parser Exp
 con = do
-  n <- identifier
+  n <- identifier  
   when (isLower (head n)) $ parserFail "expected to begin with uppercase letter"
+  return (Const n)
+
+eigen :: Parser Exp
+eigen = do
+  n <- brackets identifier  
+  when (isUpper (head n)) $ parserFail "expected to begin with lowercase letter"
   return (Const n)
 
 -- parser for FType--
@@ -138,13 +144,13 @@ forall = do
   return $ foldr (\ x y -> Forall x y) p (map (\(Var x) -> x) as)
 
 compound = do
-  n <- try var <|> con <|> parens term 
+  n <- eigen <|> try var <|> con <|> parens term 
   as <- compoundArgs
   if null as then return n
     else return $ foldl' (\ z x -> PApp z x) n as 
 
 compoundArgs =
-  many $ indented >> (try con <|> try var <|> try (parens term))
+  many $ indented >> (try eigen <|> try con <|> try var <|> try (parens term))
 
 
 -----------------------Positions -------

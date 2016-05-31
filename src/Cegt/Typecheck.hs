@@ -36,11 +36,21 @@ ground Star = Star
 ground Formula = Formula
 
 inferKind :: Exp -> KCMonad Kind
-inferKind (Const x) = do
+inferKind (Const x) | isUpper (head x) = do
   genv <- ask
   case lookup x genv of
     Just k -> return k
     Nothing -> lift $ lift $ lift $ Left $ text "Kinding error: " <+> text "undefine type constructor:" <+> disp x
+
+                    | otherwise  = do
+  env <- lift get
+  case lookup x env of
+    Nothing -> do
+      ki <- makeName "k"
+      let kind = KVar ki
+      lift $ modify (\ e -> (x, kind): e)
+      return kind
+    Just k -> return k  
   
 inferKind (Var x) = do
   env <- lift get
@@ -200,7 +210,8 @@ proofCheck (Var x) = do env <- ask
                                kindable f ks
                                return f
 
-proofCheck (Const x) = do env <- ask
+proofCheck (Const x) =
+                       do env <- ask
                           case lookup x env of
                               Nothing -> lift $ lift $ Left 
                                          $ text "proof checking error: unknown constant" 
@@ -209,7 +220,7 @@ proofCheck (Const x) = do env <- ask
                                ks <- lift ask 
                                kindable f ks
                                return f
-                                                            
+                     
 proofCheck (App e1 e2)  = do f1 <- proofCheck e1 
                              f2 <- proofCheck e2
                              case f1 of

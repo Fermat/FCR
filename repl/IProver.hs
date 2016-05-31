@@ -97,7 +97,7 @@ prover  = do
                               do
                                 lift $ put (gf, s:hist, s', kinds)
                                 outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
-                                return $ Just (gn,pf,gf)
+                                return $ Just (gn,rebind pf,gf)
                             s'@(_,pf,(_,g,gamma):_,Nothing,_ ) ->
                               do lift $ put (gf, s:hist, s', kinds)
                                  outputStrLn $ show (text "current goal:" $$ disp g)
@@ -120,7 +120,7 @@ prover  = do
                               do
                                 lift $ put (gf, s:hist, s', kinds)
                                 outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
-                                return $ Just (gn,pf,gf)
+                                return $ Just (gn,rebind pf,gf)
                             s'@(_,pf,(_,g,gamma):_,Nothing,_) ->
                               do lift $ put (gf, s:hist, s', kinds)
                                  outputStrLn $ show (text "current goal:" $$ disp g)
@@ -153,7 +153,7 @@ prover  = do
                               do
                                 lift $ put (gf, s:hist, s', kinds)
                                 outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
-                                return $ Just (gn,pf,gf)
+                                return $ Just (gn,rebind pf,gf)
                             s'@(_,pf,(_,g,gamma):_, Nothing, _ ) ->
                               do lift $ put (gf, s:hist, s', kinds)
                                  outputStrLn $ show (text "current goal:" $$ disp g)
@@ -176,7 +176,7 @@ prover  = do
                               do
                                 lift $ put (gf, s:hist, s', kinds)
                                 outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
-                                return $ Just (gn,pf,gf)
+                                return $ Just (gn,rebind pf,gf)
                             s'@(_,pf,(_,g,gamma):_, Nothing,_ ) ->
                               do lift $ put (gf, s:hist, s', kinds)
                                  outputStrLn $ show (text "current goal:" $$ disp g)

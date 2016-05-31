@@ -78,7 +78,8 @@ instance Disp Kind where
 
 instance Disp Exp where
 --  disp r | trace ("disp " ++ show r) False = undefined
-  disp (Const x) = disp x
+  disp (Const x) | isUpper (head x) = disp x
+                 | otherwise = brackets $ disp x
   disp (Var x) = disp x
   disp (s@(App s1 s2)) =
     sep [dParen (precedence s - 1) s1,  

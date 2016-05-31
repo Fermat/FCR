@@ -27,7 +27,7 @@ lemmaConstr env ((n, g), ts) =
 prfConstr :: [Tactic] -> StateT (ProofState, [(Name, Kind)]) (Either Doc) (Name, Exp)
 prfConstr [] = do (ps, _) <- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
                   case ps of
-                    (n, pf, [], Nothing, i) -> return (n, pf)
+                    (n, pf, [], Nothing, i) -> return (n, rebind pf)
                     (n, pf, _, Just err, i) -> lift $ Left err
                     (n, pf, (_,g,gamma):as, m, i) ->
                       lift $ Left $ text "unfinished goal" <+> disp g $$

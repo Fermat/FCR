@@ -6,7 +6,7 @@ import Control.Monad.Reader
 import Data.Char
 import qualified Data.Set as S
 import Data.List hiding (partition)
-
+import Debug.Trace
 
 type Name = String
 
@@ -91,7 +91,23 @@ flattenK :: Kind -> [Kind]
 flattenK (KArrow f1 f2) =  f1 : flattenK f2
 flattenK a = [a]
 
-
+rebind :: Exp -> Exp
+--rebind exp | trace ("rebind " ++show (exp)) False = undefined
+rebind (Const x) | isUpper $ head x = Const x
+                 | otherwise = (Var x)
+rebind (Var x) = Var x
+rebind (App t1 t2) = App (rebind t1) (rebind t2)
+rebind (TApp t1 t2) = TApp (rebind t1) (rebind t2)
+rebind (PApp t1 t2) = PApp (rebind t1) (rebind t2)
+rebind (Imply t1 t2) = Imply (rebind t1) (rebind t2)
+rebind (Lambda x Nothing t) =
+  Lambda x Nothing (rebind t)
+rebind (Lambda x (Just t') t) =
+  Lambda x (Just $ rebind t') (rebind t)
+rebind (Abs x t) = Abs x (rebind t)
+rebind (Forall x t) = Forall x (rebind t)
+rebind a = error $ show a
+  
 type BindCxt a = Reader [(Name, Int)] a
 
 -- debruijn representation of type 
