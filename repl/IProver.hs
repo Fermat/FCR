@@ -29,8 +29,8 @@ prover  = do
                     Right e -> do
                       case flatten e of
                         (Var g):exp:[] -> 
-                          do (_, [], (_, _, (_,_,gamma):_), kinds) <- lift get
-                             let init = (g, exp, [([], exp, gamma)])
+                          do (_, [], (_, _, (_,_,gamma):_, m, i), kinds) <- lift get
+                             let init = (g, exp, [([], exp, gamma)], m, i)
                              lift $ put (exp, [], init, kinds)
                              outputStrLn $
                                show (text "set to prove goal"<+> text g <+>text ":" <+> disp exp)
@@ -41,18 +41,23 @@ prover  = do
             Just input | Just rest <- stripPrefix "intros " input ->
               do let a = words rest
                  (gf, hist, st1, kinds) <- lift get
-                 let st2@(_, pf, (_,newGoal, new):_) = intros st1 a
-                 lift (put (gf, st1:hist, st2, kinds))
-                 outputStrLn $ show (text "current goal:" $$ disp newGoal)
-                 outputStrLn $ show (text "in the environment:" $$ disp new)
-                 outputStrLn $ show (text "current mix proof term:" $$ disp pf)
-                 prover
+                 let st2@(_, pf, (_,newGoal, new):_, m, i) = intros st1 a
+                 case m of
+                   Nothing -> do
+                     lift (put (gf, st1:hist, st2, kinds))
+                     outputStrLn $ show (text "current goal:" $$ disp newGoal)
+                     outputStrLn $ show (text "in the environment:" $$ disp new)
+                     outputStrLn $ show (text "current mix proof term:" $$ disp pf)
+                     prover
+                   Just err -> do
+                     outputStrLn $ show (text "error:" $$ disp err)
+                     prover
             Just "undo" ->
               do (gf, hist, s, kinds) <- lift get
                  case hist of
                    [] -> do outputStrLn $ "cannot further undo"
                             prover
-                   (h@(_,pf,(_,g,ns):_)):xs ->
+                   (h@(_,pf,(_,g,ns):_,_,_)):xs ->
                      do lift (put (gf, xs, h, kinds))
                         outputStrLn $ show (text "current goal:" $$ disp g)
                         outputStrLn $ show (text "in the environment:" $$ disp ns)
@@ -61,10 +66,10 @@ prover  = do
             Just "coind" ->
               do (gf, hist, s, kinds) <- lift get
                  case coind s of
-                   Nothing -> 
-                     do outputStrLn $ "coind tactic can only be used at the very beginning of the proof"
+                   (_,_,_,Just err, _) -> 
+                     do outputStrLn $ show (disp err)
                         prover
-                   Just s'@(_, _, (_,g,ns):_) ->
+                   s'@(_, _, (_,g,ns):_, Nothing, i) ->
                      do lift $ put (gf, s:hist, s', kinds)
                         outputStrLn $ show (text "current goal:" $$ disp g)
                         outputStrLn $ show (text "in the environment:" $$ disp ns)
@@ -78,43 +83,45 @@ prover  = do
                 Right big -> do
                   case flatten big of
                     ((Const n):ins) -> do 
-                      (gf, hist, s@(_,_,(_,_,gamma):_), kinds) <- lift get
+                      (gf, hist, s@(_,_,(_,_,gamma):_, _, _), kinds) <- lift get
                       case kindList ins kinds of
                         Left err -> do outputStrLn $
                                          show ((text "kinding error:" $$ disp err))
                                        prover
                         Right _ ->  
                           case apply s n ins of
-                            Nothing -> do outputStrLn $
-                                            show ((text "fail to apply rule:" <+> text n))
-                                          prover
-                            Just s'@(gn,pf,[]) ->
+                            (_,_,_, Just err, _) ->
+                              do outputStrLn $ show (disp err)
+                                 prover
+                            s'@(gn,pf,[], Nothing, _) ->
                               do
                                 lift $ put (gf, s:hist, s', kinds)
                                 outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
                                 return $ Just (gn,pf,gf)
-                            Just s'@(_,pf,(_,g,gamma):_ ) ->
+                            s'@(_,pf,(_,g,gamma):_,Nothing,_ ) ->
                               do lift $ put (gf, s:hist, s', kinds)
                                  outputStrLn $ show (text "current goal:" $$ disp g)
                                  outputStrLn $ show (text "in the environment:" $$ disp gamma)
                                  outputStrLn $ show (text "current mix proof term:" $$ disp pf)
                                  prover
                     ((Var n):ins) -> do
-                      (gf, hist, s@(_,_,(_,_,gamma):_), kinds) <- lift get
+                      (gf, hist, s@(_,_,(_,_,gamma):_, _,_), kinds) <- lift get
                       case kindList ins kinds of
                         Left err -> do outputStrLn $
                                          show ((text "kinding error:" $$ disp err))
                                        prover
                         Right _ ->                        
                           case apply s n ins of
-                            Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n)
-                                          prover
-                            Just s'@(gn,pf,[]) ->
+                            (_,_,_,Just err, _) -> do
+                              outputStrLn $ "fail to apply rule: " ++ (show n)
+                              outputStrLn $ show (disp err)
+                              prover
+                            s'@(gn,pf,[],Nothing, _) ->
                               do
                                 lift $ put (gf, s:hist, s', kinds)
                                 outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
                                 return $ Just (gn,pf,gf)
-                            Just s'@(_,pf,(_,g,gamma):_ ) ->
+                            s'@(_,pf,(_,g,gamma):_,Nothing,_) ->
                               do lift $ put (gf, s:hist, s', kinds)
                                  outputStrLn $ show (text "current goal:" $$ disp g)
                                  outputStrLn $ show (text "in the environment:" $$ disp gamma)
@@ -131,43 +138,46 @@ prover  = do
                 Right big -> do
                   case flatten big of
                     ((Const n):ins) -> do 
-                      (gf, hist, s@(_,_,(_,_,gamma):_), kinds) <- lift get
+                      (gf, hist, s@(_,_,(_,_,gamma):_, _, _), kinds) <- lift get
                       case kindList ins kinds of
                         Left err -> do outputStrLn $
                                          show ((text "kinding error:" $$ disp err))
                                        prover
                         Right _ ->  
                           case use s n ins of
-                            Nothing -> do outputStrLn $
-                                            show ((text "fail to use rule:" <+> text n))
-                                          prover
-                            Just s'@(gn,pf,[]) ->
+                            (_, _, _, Just err, _) ->
+                              do outputStrLn $ show ((text "fail to use rule:" <+> text n))
+                                 outputStrLn $ show $ disp err
+                                 prover
+                            s'@(gn,pf,[], Nothing, _) ->
                               do
                                 lift $ put (gf, s:hist, s', kinds)
                                 outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
                                 return $ Just (gn,pf,gf)
-                            Just s'@(_,pf,(_,g,gamma):_ ) ->
+                            s'@(_,pf,(_,g,gamma):_, Nothing, _ ) ->
                               do lift $ put (gf, s:hist, s', kinds)
                                  outputStrLn $ show (text "current goal:" $$ disp g)
                                  outputStrLn $ show (text "in the environment:" $$ disp gamma)
                                  outputStrLn $ show (text "current mix proof term:" $$ disp pf)
                                  prover
                     ((Var n):ins) -> do
-                      (gf, hist, s@(_,_,(_,_,gamma):_), kinds) <- lift get
+                      (gf, hist, s@(_,_,(_,_,gamma):_, _, _), kinds) <- lift get
                       case kindList ins kinds of
                         Left err -> do outputStrLn $
                                          show ((text "kinding error:" $$ disp err))
                                        prover
                         Right _ ->                        
                           case use s n ins of
-                            Nothing -> do outputStrLn $ "fail to apply rule: " ++ (show n)
-                                          prover
-                            Just s'@(gn,pf,[]) ->
+                            (_,_,_,Just err, _) ->
+                              do outputStrLn $ "fail to apply rule: " ++ (show n)
+                                 outputStrLn $ show (disp err)
+                                 prover
+                            s'@(gn,pf,[],Nothing, _) ->
                               do
                                 lift $ put (gf, s:hist, s', kinds)
                                 outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
                                 return $ Just (gn,pf,gf)
-                            Just s'@(_,pf,(_,g,gamma):_ ) ->
+                            s'@(_,pf,(_,g,gamma):_, Nothing,_ ) ->
                               do lift $ put (gf, s:hist, s', kinds)
                                  outputStrLn $ show (text "current goal:" $$ disp g)
                                  outputStrLn $ show (text "in the environment:" $$ disp gamma)

@@ -22,7 +22,6 @@ library
                       Cegt.Rewrite,
                       Cegt.Interaction,
                       Cegt.Typecheck,
-                      Cegt.Typeinference,
                       Cegt.Monad,
                       Cegt.Loop,
                       Cegt.PrettyPrinting

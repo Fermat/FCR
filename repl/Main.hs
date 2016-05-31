@@ -44,7 +44,7 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
           let gamma = axioms env ++ map (\ (x,(_,y))-> (x,y)) (lemmas env)
               ks = kinds env
           result <- lift $ lift $ evalStateT (runInputT defaultSettings prover)
-                    (Var "dummy", [], ("dummy", Var "dummy", [([],Var "dummy" ,gamma)]), ks)
+                    (Var "dummy", [], ("dummy", Var "dummy", [([],Var "dummy" ,gamma)], Nothing, 0), ks)
           case result of
             Nothing -> loop
             Just (n, p, f) -> 
