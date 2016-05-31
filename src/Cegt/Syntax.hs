@@ -11,6 +11,9 @@ import Data.List hiding (partition)
 type Name = String
 
 -- evidence, type
+-- variable convention: Upper-case begining word represents constant.
+-- lower-case begining represents variable, lower-case constant represent eigenvariable
+
 data Exp = Var Name
           | Const Name
           | App Exp Exp
