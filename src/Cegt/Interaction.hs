@@ -59,6 +59,18 @@ prfConstr ((Apply n ts):xs) = do (ps@(ln,_,_, _, _), ks) <- get
                                              -- <+> text (show ps)
                                        ps'@(_,_,_, Nothing, _) -> put (ps', ks) >> prfConstr xs
 
+prfConstr ((ApplyH n):xs) = do (ps@(ln,_,_, _, _), ks) <- get
+                               case applyH ks ps n of
+                                       (_,_,_, Just err, _):[] -> lift $ Left $
+                                                  text "fail to use the tactic: apply"
+                                                  <+> disp n $$
+                                                  (text "in the proof of lemma" <+> disp ln)
+                                                  $$ nest 2 (disp err)
+                                             -- <+> text (show ps)
+                                       (ps'@(_,_,_, Nothing, _)):[] -> put (ps', ks) >> prfConstr xs
+                                       _ ->  lift $ Left $
+                                             text "ambiguous applyh" <+> disp n 
+
 prfConstr ((Use n ts):xs) = do (ps@(ln,_,(_,cg,_):_, _, _), ks )<- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
                                case kindList ts ks of
                                  Left err -> do lift $ Left $
@@ -105,7 +117,7 @@ intros (gn, pf, (pos, goal, gamma):res, Nothing, i) ns =
       lv = length vars
       num = lv + lb
       impNames = ns 
-      absNames = zipWith (\ x y -> x ++ show i) vars [i..]
+      absNames = zipWith (\ x y -> x ++ show y) vars [i..]
       sub = zip vars (map Const absNames)
       body' = map (\ x -> applyE sub x) body
       head' = applyE sub head
@@ -153,33 +165,70 @@ apply (gn, pf, (pos, goal, gamma):res, Nothing, i) k ins =
                           new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
                       in (gn, pf', new++res, Nothing,i')  
 
-{-
--- smart first order apply for type inference use 
-applyF :: ProofState -> Name -> Maybe ProofState
-applyF (gn, pf, []) k = Nothing
-applyF (gn, pf, (pos, goal, gamma):res) k = 
+
+-- smart higher order apply, if it fails, it returns a singleton list with
+-- error mark as Just otherwise it succeeds with multiple proof states
+applyH :: KSubst -> ProofState -> Name -> [ProofState]
+-- applyH ks init k | trace ("--applyH " ++show (disp k)) False = undefined
+applyH ks (gn, pf, [], Nothing, i) k =
+    let m' = Just $ text "no more subgoals" in [(gn, pf, [], m', i)]
+
+applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k = 
   case lookup k gamma of
-    Nothing -> Nothing
-    Just f -> let (vars, head, body) = separate f in
-              if null vars then
-                if f == goal then
-                  let
-                    name = case k of
-                       n:_ -> if isUpper n then Const k else Var k
-                       a -> error "unknow error from applyF"
-                    pf' = replace pf pos name
-                  in Just (gn, pf', res)  
-                else Nothing
-              else
-                let  
-                  fresh = map (\ (v, i) -> v ++ show i ++ "fresh") $ zip vars [1..]
+    Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
+      [(gn, pf, (pos, goal, gamma):res, m', i)]
+    Just f -> let (vars, head, body) = separate f
+                  i' = i + length vars
+                  fresh = map (\ (v, j) -> v ++ show j) $ zip vars [i..]
+                  renaming = zip vars (map Var fresh)
+                  body'' = map (applyE renaming) body
+                  head'' = applyE renaming head
+                  ss = runHMatch ks head'' goal -- trace (show head''++ "--from rhm--"++ show goal ++ show k) $
+              in case ss of
+                [] -> let m' = Just $ text "can't match" <+> disp head'' <+> text "against"
+                            <+> disp goal
+                   in [(gn, pf, (pos, goal, gamma):res, m', i)]
+                _ -> do
+                  sub <-  ss -- trace (show ss ++ "this is ss")$
+                  let body' = map normalize $ (map (applyE sub) body'')
+                      head' = normalize $ applyE sub head''
+                      np = map snd sub  -- ++body'
+                      name = case k of
+                               n:_ -> if isUpper n then Const k else Var k
+                               a -> error "unknow error from apply"
+                      contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
+                      pf' = replace pf pos contm
+                      zeros = makeZeros $ length body'
+                      ps = map (\ x -> pos++x++[1]) zeros
+                      new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
+                  return (gn, pf', new++res, Nothing, i')  
+
+{-
+-- smart first order apply for type inference use
+-- perhaps there is no point of using it because it is subsumed by applyH    
+applyF :: ProofState -> Name -> ProofState
+applyF (gn, pf, [], Nothing, i) k =
+    let m' = Just $ text "no more subgoals" in
+    (gn, pf, [], m', i)
+    
+applyF (gn, pf, (pos, goal, gamma):res, Nothing, i) k
+  = 
+  case lookup k gamma of
+    Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
+      (gn, pf, (pos, goal, gamma):res, m', i)
+    Just f -> let (vars, head, body) = separate f 
+                  i' = i + length vars
+                  fresh = map (\ (v, j) -> v ++ show j) $ zip vars [i..]
                   renaming = zip vars (map Var fresh)
                   body'' = map (applyE renaming) body
                   head'' = applyE renaming head
                   ss = match head'' goal -- zip fresh ins
                 in
                  case ss of
-                   Nothing -> Nothing
+                   Nothing -> let m' = Just $ text "can't match" <+> disp head'' <+> text "against"
+                                       <+> disp goal
+                              in
+                               (gn, pf, (pos, goal, gamma):res, m', i)
                    Just sub -> 
                      let body' = map (applyE sub) body''
                          head' = applyE sub head''
@@ -192,7 +241,7 @@ applyF (gn, pf, (pos, goal, gamma):res) k =
                          zeros = makeZeros $ length body'
                          ps = map (\ x -> pos++x++[1]) zeros
                          new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
-                     in Just (gn, pf', new++res)  
+                     in (gn, pf', new++res, Nothing, i')  
 
 -}
 use :: ProofState -> Name -> [Exp] -> ProofState

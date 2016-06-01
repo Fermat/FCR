@@ -54,7 +54,7 @@ proof = do
   return ((n, t), ts)
 
 tactic :: Parser Tactic
-tactic = tacIntros <|> tacApply <|> tacUse <|> tacCoind
+tactic = tacIntros <|> tacApply <|> tacUse <|> tacCoind <|> tacApplyH
 
 tacIntros = do
   reserved "intros"
@@ -78,6 +78,12 @@ tacApply = do
   case ts of
     Nothing -> return $ Apply n []
     Just ts' -> return $ Apply n (flatten ts')
+
+tacApplyH = do
+  reserved "applyh"
+  n <- identifier
+  return $ ApplyH n 
+  
 
 
 ruleDecl :: Parser (Name, Exp)
@@ -179,7 +185,7 @@ gottlobStyle = Token.LanguageDef
                 , Token.reservedNames =
                   [
                     "forall", "iota", "reduce", 
-                    "coind","use", "intros", "apply", 
+                    "coind","use", "intros", "apply", "applyh",
                     "by", "from", "in", "let", "simpCmp", "invSimp",
                     "case", "of",
                     "data", "if", "then", "else",

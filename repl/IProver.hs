@@ -127,8 +127,64 @@ prover  = do
                                  outputStrLn $ show (text "in the environment:" $$ disp gamma)
                                  outputStrLn $ show (text "current mix proof term:" $$ disp pf)
                                  prover
+                                 
                     a -> do  outputStrLn $ "wrong input: " ++ (show a)
                              prover
+            Just input | Just rest <- stripPrefix "applyh " input ->
+              case parseExp rest of
+                Left err -> do
+                      outputStrLn (show (disp err))
+                      prover
+                Right big -> do
+                  case flatten big of
+                    ((Const n):[]) -> do 
+                      (gf, hist, s@(_,_,(_,cg,gamma):_, _, _), kinds) <- lift get
+                      case applyH kinds s n of
+                            (_,_,_, Just err, _):[] ->
+                              do outputStrLn $ show (disp err)
+                                 prover
+                            (s'@(gn,pf,[], Nothing, _)):[] ->
+                              do
+                                lift $ put (gf, s:hist, s', kinds)
+                                outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
+                                return $ Just (gn,rebind pf,gf)
+                            (s'@(_,pf,(_,g,gamma):_,Nothing,_ )):[] ->
+                              do lift $ put (gf, s:hist, s', kinds)
+                                 outputStrLn $ show (text "current goal:" $$ disp g)
+                                 outputStrLn $ show (text "in the environment:" $$ disp gamma)
+                                 outputStrLn $ show (text "current mix proof term:" $$ disp pf)
+                                 prover
+                            _ -> do
+                              outputStrLn $ show (text "ambiguous applyh" <+> disp n)
+                              outputStrLn $ show (text "current goal:" $$ (nest 2 $ disp cg))
+                              prover
+                    ((Var n):[]) -> do
+                      (gf, hist, s@(_,_,(_,cg,gamma):_, _,_), kinds) <- lift get
+                      case applyH kinds s n of
+                            (_,_,_,Just err, _):[] -> do
+                              outputStrLn $ "fail to apply rule: " ++ (show n)
+                              outputStrLn $ show (disp err)
+                              prover
+                            (s'@(gn,pf,[],Nothing, _)):[] ->
+                              do
+                                lift $ put (gf, s:hist, s', kinds)
+                                outputStrLn $ show (text "Q.E.D with the proof:" $$ disp pf)
+                                return $ Just (gn,rebind pf,gf)
+                            (s'@(_,pf,(_,g,gamma):_,Nothing,_)):[] ->
+                              do lift $ put (gf, s:hist, s', kinds)
+                                 outputStrLn $ show (text "current goal:" $$ disp g)
+                                 outputStrLn $ show (text "in the environment:" $$ disp gamma)
+                                 outputStrLn $ show (text "current mix proof term:" $$ disp pf)
+                                 prover
+                            _ -> do
+                              outputStrLn $ show (text "ambiguous applyh" <+> disp n)
+                              outputStrLn $ show (text "current goal:" $$ (nest 2 $ disp cg))
+                              prover
+                                 
+                                 
+                    a -> do  outputStrLn $ "wrong input: " ++ (show a)
+                             prover
+                             
             Just input | Just rest <- stripPrefix "end" input -> return Nothing
             Just input | Just rest <- stripPrefix "use " input ->
               case parseExp rest of

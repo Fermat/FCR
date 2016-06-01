@@ -44,6 +44,7 @@ data Nameless = V Int
 -- [Exp] for Apply and Use are all types
 data Tactic = Apply Name [Exp]
             | Coind
+            | ApplyH Name
             | Use Name [Exp]
             | Intros [Name]
             deriving (Show)
