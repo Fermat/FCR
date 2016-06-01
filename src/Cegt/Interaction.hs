@@ -192,7 +192,7 @@ applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k =
                   sub <-  ss -- trace (show ss ++ "this is ss")$
                   let body' = map normalize $ (map (applyE sub) body'')
                       head' = normalize $ applyE sub head''
-                      np = map snd sub  -- ++body'
+                      np = ([ s | r <- fresh, (yy, s) <- sub, r == yy])  -- reordering argument
                       name = case k of
                                n:_ -> if isUpper n then Const k else Var k
                                a -> error "unknow error from apply"
