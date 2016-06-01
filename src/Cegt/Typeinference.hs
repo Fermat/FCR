@@ -12,7 +12,7 @@ import Text.PrettyPrint
 import Data.List
 import Data.Char
 import Debug.Trace
-{-
+
 env2 = [("H", KArrow Star (KArrow Star Star)), ("J", KArrow Star Star), ("G", KArrow Star Star), ("S", KArrow Star Star)]
 exp1 = (Lambda "a1" Nothing
         (Lambda "a2" Nothing
@@ -22,30 +22,36 @@ exp1 = (Lambda "a1" Nothing
             (App (Var "a2")
              (App (App (App (Var "h")
                         (Lambda "b1" Nothing (App (Var "a1") (App (Var "a2") (Var "b1")))))
-                   (Var "a2"))
-              (Var "a3"))))))))
+                   (Lambda "b1" Nothing (App (Var "a2") (Var "b1"))))
+              (Lambda "b1" Nothing (App (Var "a3") (Var "b1"))))))))))
 
 f1 = Forall "p'" (Forall "f" (Forall "x" (Forall "z" (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z"))))) (PApp (Var "p") (PApp (PApp (Var "f") (Var "x")) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "y")))) (PApp (Var "p") (PApp (PApp (Const "H") (PApp (Const "S") (Var "x"))) (Var "y"))))))) (Imply (Forall "p" (Forall "x" (Forall "y" (Imply (PApp (Var "p") (PApp (Const "J") (Var "y"))) (PApp (Var "p") (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "y")))))))) (PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (Var "x"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (Var "z")))))))))))
 
 g2 = PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (PApp (Const "S") (Var "x")))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "z")))))
 
 h2 = PApp (Var "p1fresh") (PApp (PApp (Const "H") (PApp (Const "S") (Var "x2fresh"))) (Var "y3fresh"))
-initstate1 = [("h", f1, [([], f1, [("h", f1)])])]
-man1 = construction "h" env2 initstate1 exp1 -- [s | s <- construction "h" env2 initstate1 exp1, success s]
+initstate1 = [("h", f1, [([], f1, [("h", f1)])], Nothing, 0)]
+man1 = case [s | s <- construction "h" env2 initstate1 exp1, success s] of
+        (_, pf, _, _, _):_ -> disp pf
 man3 = construction "h" env2 initstate1 (Var "h")
 
 g1 = PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (PApp (Const "S") (Var "x")))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "z")))))
 
 h1 = PApp (Var "p'1") (PApp (PApp (Var "f2") (PApp (Const "S") (Var "x3"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x3")) (Var "z4"))))
 man2 = runHMatch env2 h1 g1 
+
 success :: ProofState -> Bool
-success (gn,pf,[]) = True
+success (gn,pf,[], Nothing, i) = True
 success _ = False
 
+
+display s  = sep [ brackets (sep $ helper q) | (_,_,q ,Nothing, _) <- s ]
+helper [] = [empty]
+helper ((_,g,_):xs) = disp g : helper xs
 construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
-construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp)) False = undefined
+construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp) ++ "--" ++ (show $ display init)) False = undefined
 construction n ks init (Var v) =
-  [s | Just s <- map (\ x -> useF x v) init]
+  concat $ map (\ x -> applyH ks x v) init
 
 construction n ks init a@(Lambda x Nothing t) =
   let (vars, b) = (map fst $ viewLVars a, viewLBody a)
@@ -53,37 +59,23 @@ construction n ks init a@(Lambda x Nothing t) =
   in construction n ks new b
 
 construction n ks init (App (Const k) p2) =
-  let next = [s | Just s <- map (\ x -> applyF x k) init]
-  in
-   if null next then
-     do nex <-  map (\x -> applyH ks x k) init
-        construction n ks nex p2
-   else construction n ks next p2
+  let next = concat $ map (\ x -> applyH ks x k) init
+  in construction n ks next p2
 
+construction n ks init (App (Var v) p2) =
+  let next = concat $ map (\ x -> applyH ks x v) init
+  in construction n ks next p2
 
-construction n ks init (App (Var v) p2) | v /= n =
-  let next = [s | Just s <- map (\ x -> applyF x v) init]
-  in
-   if null next then
-     do nex <-  map (\x -> applyH ks x v) init
-        construction n ks nex p2
-   else construction n ks next p2
-
--- Has bug
-construction n ks init (App (Var v) p2) | v == n =
-  do next <-  map (\x -> applyH ks x v) init
-     
-     construction n ks next p2
 --  x App (App y z) q
 construction n ks init a@(App p1 p2) = 
   case flatten a of
     (Var v): xs | v == n ->
-      do next <- map (\ x -> applyH ks x v) init 
-         foldr (\ z x -> construction n ks x z) next xs
+      let next = concat $ map (\ x -> applyH ks x v) init
+      in foldl (\ z x -> construction n ks z x) next xs
 
 
 -- construction n ks init a@(App p1 p2) =
--}
+
       
 
 -- Second order matching, using Gilles Dowek's terminology in his tutorial.

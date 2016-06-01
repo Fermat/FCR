@@ -59,7 +59,7 @@ prfConstr ((Apply n ts):xs) = do (ps@(ln,_,_, _, _), ks) <- get
                                              -- <+> text (show ps)
                                        ps'@(_,_,_, Nothing, _) -> put (ps', ks) >> prfConstr xs
 
-prfConstr ((ApplyH n):xs) = do (ps@(ln,_,_, _, _), ks) <- get
+prfConstr ((ApplyH n):xs) = do (ps@(ln,_,(_,cg,_):_, _, _), ks) <- get
                                case applyH ks ps n of
                                        (_,_,_, Just err, _):[] -> lift $ Left $
                                                   text "fail to use the tactic: apply"
@@ -68,8 +68,8 @@ prfConstr ((ApplyH n):xs) = do (ps@(ln,_,_, _, _), ks) <- get
                                                   $$ nest 2 (disp err)
                                              -- <+> text (show ps)
                                        (ps'@(_,_,_, Nothing, _)):[] -> put (ps', ks) >> prfConstr xs
-                                       _ ->  lift $ Left $
-                                             text "ambiguous applyh" <+> disp n 
+                                       s ->  lift $ Left $
+                                             text "ambiguous applyh" <+> disp n $$ text "current goal:" <+> (disp cg)
 
 prfConstr ((Use n ts):xs) = do (ps@(ln,_,(_,cg,_):_, _, _), ks )<- get  -- (Name, Exp, [(Pos, Exp, PfEnv)])
                                case kindList ts ks of
@@ -109,7 +109,7 @@ coind (g, pf, gs, _, i) =
   (g, pf, gs, err, i)
 
 intros :: ProofState -> [Name] -> ProofState
-intros (gn, pf, [], Nothing, i) ns =
+intros (gn, pf, [], m, i) ns =
   let err = Just $ text "no more subgoals" in (gn, pf, [], err, i)
 intros (gn, pf, (pos, goal, gamma):res, Nothing, i) ns =
   let (vars, head, body) = separate goal
@@ -127,6 +127,8 @@ intros (gn, pf, (pos, goal, gamma):res, Nothing, i) ns =
       pf' = replace pf pos newAbs
       pos' = pos ++ take num stream2
   in (gn, pf', (pos',head', gamma++newEnv):res, Nothing, i+lv)
+
+intros (gn, pf, (pos, goal, gamma):res, m, i) ns = (gn, pf, (pos, goal, gamma):res, m, i)
 
 stream2 = 2:stream2
 
@@ -170,7 +172,7 @@ apply (gn, pf, (pos, goal, gamma):res, Nothing, i) k ins =
 -- error mark as Just otherwise it succeeds with multiple proof states
 applyH :: KSubst -> ProofState -> Name -> [ProofState]
 -- applyH ks init k | trace ("--applyH " ++show (disp k)) False = undefined
-applyH ks (gn, pf, [], Nothing, i) k =
+applyH ks (gn, pf, [], m, i) k =
     let m' = Just $ text "no more subgoals" in [(gn, pf, [], m', i)]
 
 applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k = 
@@ -202,6 +204,8 @@ applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k =
                       ps = map (\ x -> pos++x++[1]) zeros
                       new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
                   return (gn, pf', new++res, Nothing, i')  
+
+applyH ks (gn, pf, (pos, goal, gamma):res, m@(Just _), i) k = [(gn, pf, (pos, goal, gamma):res, m, i)]
 
 {-
 -- smart first order apply for type inference use
