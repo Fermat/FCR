@@ -149,8 +149,8 @@ apply (gn, pf, (pos, goal, gamma):res, Nothing, i) k ins =
                   body' = map normalize $ (map (applyE sub) body'')
                   head' = normalize $ applyE sub head''
               in if head' /= goal then
-                   let m' = Just $ text "can't match" <+> disp head' <+> text "against"
-                            <+> disp goal
+                   let m' = Just $ text "can't match" <+> disp head' $$ text "against"
+                            $$ disp goal
                    in
                    (gn, pf, (pos, goal, gamma):res, m', i)
                                        -- error $ "error apply--" ++ show head' ++ "--" ++ show goal

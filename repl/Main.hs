@@ -185,7 +185,7 @@ loadFile filename = do cnts <- lift (readFile filename)
                                                     -- lift $ print (disp (lemmas env'))
                                          Left err ->
                                            lift $ print (text "error in the proof script:"
-                                                         <+> disp err)
+                                                         $$ disp err)
                                        
                            where extendMod [] s = s
                                  extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
