@@ -205,7 +205,8 @@ applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k =
                       new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
                   return (gn, pf', new++res, Nothing, i')  
 
-applyH ks (gn, pf, (pos, goal, gamma):res, m@(Just _), i) k = [(gn, pf, (pos, goal, gamma):res, m, i)]
+applyH ks (gn, pf, (pos, goal, gamma):res, m@(Just _), i) k =
+  [(gn, pf, (pos, goal, gamma):res, m, i)]
 
 {-
 -- smart first order apply for type inference use

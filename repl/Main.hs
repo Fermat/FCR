@@ -168,7 +168,7 @@ loadFile filename = do cnts <- lift (readFile filename)
                                        modify (\ s -> addKinds ks s)
                                        modify (\ s -> addDecls pdl s)
 --                                       lift (print (show pfs))
-                                       semiauto 
+                                       
                                        env <- get
                                        
                                        case interpret env pfs of
@@ -178,14 +178,15 @@ loadFile filename = do cnts <- lift (readFile filename)
                                              Left err -> lift $ print (disp err $$ text ("fail to load file "++filename))
                                              Right _ -> 
                                                  do modify (\ s -> extendLms res s)
-                                                    lift $ print (text ("loaded: "++filename))
+                                                    lift $ print (text ("passed the interactive proof checker"))
                                                     env' <- get
-                                                    lift $ print (disp env')
+                                                    -- lift $ print (disp env')
+                                                    semiauto 
                                                     -- lift $ print (disp (lemmas env'))
                                          Left err ->
                                            lift $ print (text "error in the proof script:"
                                                          <+> disp err)
-
+                                       
                            where extendMod [] s = s
                                  extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
                                  extendR [] s = s
@@ -201,24 +202,27 @@ semiauto :: StateT Env IO ()
 semiauto = do
   env <- get
   let pds = pfdecls env
-  mapM_ semi pds     
-
-semi :: (Name, Exp, Exp) -> StateT Env IO ()
-semi (n, f, pf) = do
-    env <- get
+      res = foldM (\ x y -> semi x y) env pds
+  case res of
+    Left err -> 
+      lift $ print (disp err)
+    Right env' -> do put env'
+                     lift $ print (disp env')                     
+    
+semi :: Env -> (Name, Exp, Exp) -> Either Doc Env
+semi env (n, f, pf) = 
     let ks = kinds env
         lms = map (\ (n,(_, e)) -> (n, e)) $ lemmas env
         as = axioms env
         pEnv = as ++ lms
-        init = [(n, f, [([], f, (n, f):pEnv)], Nothing,0)]
+        init = [(n, f, [([], f, (n, f):pEnv)], Nothing,0)] in
     case constrProof n init ks pf of    
-      Right e -> do
+      Right e -> 
         let e' = rebind e
-            res' = runProofCheck n e' f env
+            res' = runProofCheck n e' f env in
         case res' of
-                 Left err -> lift $ print (disp err $$ text ("fail to load file "))
+                 Left err -> Left (disp err $$ text ("fail to load file "))
                  Right _ ->             
-                   modify $ extendLemma n e' f
-      Left err -> do
-        lift $ print (disp err)
-        lift $ print (disp env)
+                   Right $ extendLemma n e' f env
+      Left err -> Left err
+

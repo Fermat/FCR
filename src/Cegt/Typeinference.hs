@@ -18,7 +18,9 @@ constrProof n init ks exp =
   let finals = construction n ks init exp in
   case [s | s <- finals, success s] of
         (_, pf, _, _, _):_ -> Right pf
-        [] -> let rs = map (\ (_, _, _ , Just m, _) -> m) finals
+        [] -> let rs = map (\ a@(_, _, (_,g,_):_ , m, _) -> case m of
+                               Nothing -> text "unfinish goal" <+> disp g
+                               Just m' -> m' ) finals
               in Left $ sep rs
 
 env2 = [("H", KArrow Star (KArrow Star Star)), ("J", KArrow Star Star), ("G", KArrow Star Star), ("S", KArrow Star Star)]
