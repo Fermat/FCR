@@ -207,7 +207,9 @@ semiauto = do
     Left err -> 
       lift $ print (disp err)
     Right env' -> do put env'
-                     lift $ print (disp env')                     
+                     lift $ print (disp env')
+                     lift $ print (text "automated proof reconstruction success!")
+                     
     
 semi :: Env -> (Name, Exp, Exp) -> Either Doc Env
 semi env (n, f, pf) = 

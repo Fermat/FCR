@@ -187,8 +187,9 @@ applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k =
                   head'' = applyE renaming head
                   ss = runHMatch ks head'' goal -- trace (show head''++ "--from rhm--"++ show goal ++ show k) $
               in case ss of
-                [] -> let m' = Just $ text "can't match" <+> disp head'' <+> text "against"
-                            <+> disp goal
+                [] -> let m' = Just $ text "can't match" <+> disp head'' $$ text "against"
+                            <+> disp goal $$ (nest 2 (text k <+> text ":" <+> disp f)) $$
+                            (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
                    in [(gn, pf, (pos, goal, gamma):res, m', i)]
                 _ -> do
                   sub <-  ss -- trace (show ss ++ "this is ss")$

@@ -21,7 +21,8 @@ constrProof n init ks exp =
         [] -> let rs = map (\ a@(_, _, (_,g,_):_ , m, _) -> case m of
                                Nothing -> text "unfinish goal" <+> disp g
                                Just m' -> m' ) finals
-              in Left $ sep rs
+              in Left $ sep (map (\ (d, i) -> text "Wrong situation" <+> int i $$ nest 2 d)
+                             $ zip rs [1..])
 
 env2 = [("H", KArrow Star (KArrow Star Star)), ("J", KArrow Star Star), ("G", KArrow Star Star), ("S", KArrow Star Star)]
 exp1 = (Lambda "a1" Nothing
