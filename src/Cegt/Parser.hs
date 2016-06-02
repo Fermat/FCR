@@ -56,13 +56,9 @@ decl = do
   reservedOp "="
   b <- term
   let b' = convert b
-      b'' = expand b'
-  case b'' of
-    Nothing ->
-      parserFail $ "non-algebraic form" ++ (show $ disp b)
-    Just bb -> do  
-      let exp = foldr (\ x y -> Lambda x Nothing y) bb (map (\(Var x) -> x) vs)
-      return $ (n, formula, exp)    
+      bb = expand b'
+      exp = foldr (\ x y -> Lambda x Nothing y) bb (map (\(Var x) -> x) vs)
+  return $ (n, formula, exp)    
       
   
 proof :: Parser ((Name, Exp), [Tactic])

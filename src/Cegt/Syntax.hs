@@ -66,22 +66,31 @@ convert (Const x) = (Const x)
 convert (PApp f1 f2) = App (convert f1) (convert f2)
 convert (Abs x f) = Lambda x Nothing (convert f)
 
-expand :: Exp -> Maybe Exp
-expand a@(Var x) = Just $ Lambda "v" Nothing (App a (Var "v"))
-expand a@(Lambda x Nothing t) = Just a
-expand a@(App (Var _) p) = Just a
-expand a@(App (Const _) p) = Just a
+
+
+expand :: Exp -> Exp
+expand a@(Var x) = a
+expand a@(Const x) = Lambda "v" Nothing (App a (Var "v"))
+expand (Lambda x Nothing t) = Lambda x Nothing (expand t)
+expand (App (Var x) p) =  App (Var x) (expand p)
+expand (App (Const x) p) = App (Const x) (expand p)
 expand a@(App p1 p2) =
   case flatten a of
-    (Var v): xs -> do
-      res <- mapM expand xs
-      return $ reApp ((Var v): res)
-    (Const v): xs -> do
-      res <- mapM expand xs
-      return $ reApp ((Const v): res)
-    b -> Nothing
+    (Var v): xs -> 
+      let res = map expand' xs
+      in reApp ((Var v): res)
 
-expand b = Nothing  
+expand' a@(Var x) =  Lambda "v" Nothing (App a (Var "v"))
+expand' a@(Const x) = Lambda "v" Nothing (App a (Var "v"))
+expand' (Lambda x Nothing t) = Lambda x Nothing (expand t)
+expand' (App (Var x) p) =  App (Var x) (expand p)
+expand' (App (Const x) p) = App (Const x) (expand p)
+expand' a@(App p1 p2) =
+  case flatten a of
+    (Var v): xs -> 
+      let res = map expand' xs
+      in reApp ((Var v): res)
+
 -- free vars of exp
 free = S.toList . freeVar 
 -- freeVar :: Exp -> [Name]
