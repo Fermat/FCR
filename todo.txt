@@ -28,7 +28,10 @@ strategy.
 2. checking algebraic property
 3. Type checking with higher order matching and automatic annotation
 1. Evaluator
-
+-----------------------
+1. Support existential var
+2. checking algebraic property
+3. evaluator for the corec
 
 
 
