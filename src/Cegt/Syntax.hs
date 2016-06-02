@@ -49,7 +49,9 @@ data Tactic = Apply Name [Exp]
             | Intros [Name]
             deriving (Show)
                      
-data Module = Mod {decls :: [(Name, Exp)] , prfs :: [((Name, Exp), [Tactic])]}
+data Module = Mod {decls :: [(Name, Exp)] ,
+                   prfs :: [((Name, Exp), [Tactic])],
+                   pfDecl ::[(Name, Exp, Exp)]}
             deriving (Show)
                      
 toFormula :: [(Name, Exp)] -> [(Name, Exp)]
@@ -58,7 +60,28 @@ toFormula env = map (\(n,e)-> (n, helper e)) env
            let vars = "p" : free a in
            foldr (\ z x -> Forall z x) (Imply (App (Var "p") t') (App (Var "p") t)) vars
 
+convert :: Exp -> Exp
+convert (Var x) = (Var x)
+convert (Const x) = (Const x)
+convert (PApp f1 f2) = App (convert f1) (convert f2)
+convert (Abs x f) = Lambda x Nothing (convert f)
 
+expand :: Exp -> Maybe Exp
+expand a@(Var x) = Just $ Lambda "v" Nothing (App a (Var "v"))
+expand a@(Lambda x Nothing t) = Just a
+expand a@(App (Var _) p) = Just a
+expand a@(App (Const _) p) = Just a
+expand a@(App p1 p2) =
+  case flatten a of
+    (Var v): xs -> do
+      res <- mapM expand xs
+      return $ reApp ((Var v): res)
+    (Const v): xs -> do
+      res <- mapM expand xs
+      return $ reApp ((Const v): res)
+    b -> Nothing
+
+expand b = Nothing  
 -- free vars of exp
 free = S.toList . freeVar 
 -- freeVar :: Exp -> [Name]
@@ -92,6 +115,7 @@ flattenK :: Kind -> [Kind]
 flattenK (KArrow f1 f2) =  f1 : flattenK f2
 flattenK a = [a]
 
+-- convert eigenvariable to variable 
 rebind :: Exp -> Exp
 --rebind exp | trace ("rebind " ++show (exp)) False = undefined
 rebind (Const x) | isUpper $ head x = Const x

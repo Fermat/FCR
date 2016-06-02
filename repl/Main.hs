@@ -160,10 +160,12 @@ loadFile filename = do cnts <- lift (readFile filename)
                          Right a -> do let bindings = decls a
                                            pfs = prfs a
                                            ks = constKinds bindings
+                                           pdl = pfDecl a
                                        modify (\ s -> extendMod (toFormula bindings) s)
                                        modify (\ s -> extendR bindings s)
                                        modify (\ s -> extendTacs pfs s)
                                        modify (\ s -> addKinds ks s)
+                                       modify (\ s -> addDecls pdl s)
 --                                       lift (print (show pfs))
                                        env <- get
                                        case interpret env pfs of

@@ -18,7 +18,8 @@ data Env = Env{axioms :: [(Name, Exp)],
                lemmas :: [(Name, (Exp, Exp))], -- (name, (proof, formula))
                rules :: [(Name, Exp)],
                tacs :: [((Name, Exp), [Tactic])],
-               kinds ::[(Name, Kind)]
+               kinds ::[(Name, Kind)],
+               pfdecls ::[(Name, Exp, Exp)]
               }
          deriving Show
 
@@ -40,20 +41,20 @@ aToKind n | n == 0 = Star
            | n > 0 = KArrow Star (aToKind (n-1))
                      
 instance Disp Env where
-  disp (Env as lms rs ts ks) = text "axioms" $$
-                         (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) as)) $$ 
-                         text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms)) $$ text "rewrite rules" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) rs)) $$
-                         text "kinds" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) ks)) 
+  disp (Env as lms rs ts ks pfs) =
+    text "axioms" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) as)) $$ 
+    text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms)) $$ text "rewrite rules" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) rs)) $$
+    text "kinds" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) ks)) $$
+    text "proof declarations" $$ (sep (map (\ (n, exp, pf) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) pfs))
                          -- $$ text "textual lemma" $$
                          -- (vcat (map
                          --        (\ ((n, exp),pfs) ->
                          --          (disp n <+> text ":" <+> disp exp) $$ (vcat (map disp pfs)))
                          --        ts))
                       
-  
 
 emptyEnv :: Env
-emptyEnv = Env {axioms = [], lemmas = [], rules = [], tacs = [], kinds = []}
+emptyEnv = Env {axioms = [], lemmas = [], rules = [], tacs = [], kinds = [], pfdecls = []}
                   
 extendAxiom :: Name -> Exp -> Env -> Env
 extendAxiom v ts e@(Env {axioms}) = e{axioms =  (v , ts) : axioms}
@@ -69,3 +70,6 @@ extendTac v es ts e@(Env {tacs}) = e{tacs =  ((v, es), ts) : tacs}
 
 addKinds :: [(Name, Kind)] -> Env -> Env
 addKinds ks e@(Env {kinds}) = e{kinds = ks}
+
+addDecls :: [(Name, Exp, Exp)] -> Env -> Env
+addDecls ks e@(Env {pfdecls}) = e{pfdecls = ks}

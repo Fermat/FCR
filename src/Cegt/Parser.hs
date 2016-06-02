@@ -1,6 +1,7 @@
 {-#LANGUAGE PackageImports, StandaloneDeriving, DeriveDataTypeable, FlexibleContexts#-}
 module Cegt.Parser where
 import Cegt.Syntax
+import Cegt.PrettyPrinting
 
 import Text.Parsec hiding (ParseError,Empty, State)
 import qualified Text.Parsec as P
@@ -37,11 +38,33 @@ type Parser a = IndentParser String () a
 -- parse module
 gModule :: Parser Module
 gModule = do
-  bs <- many ruleDecl
-  qs <- many proof
+  bs <- many (try ruleDecl)
+  ds <- many (try decl)
+  qs <- many (try proof)  
   eof
-  return $ Mod bs qs
+  return $ Mod bs qs ds
 
+decl :: Parser (Name, Exp, Exp)
+decl = do
+  n <- identifier
+  when (isUpper (head n)) $ parserFail "expected to begin with lowercase letter"
+  reservedOp ":"
+  formula <- term
+  n' <- identifier
+  when (n /= n') $ parserFail ("unexpected definition" ++ n')
+  vs <- many var
+  reservedOp "="
+  b <- term
+  let b' = convert b
+      b'' = expand b'
+  case b'' of
+    Nothing ->
+      parserFail $ "non-algebraic form" ++ (show $ disp b)
+    Just bb -> do  
+      let exp = foldr (\ x y -> Lambda x Nothing y) bb (map (\(Var x) -> x) vs)
+      return $ (n, formula, exp)    
+      
+  
 proof :: Parser ((Name, Exp), [Tactic])
 proof = do
   reserved "lemma"
