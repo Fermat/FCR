@@ -67,7 +67,11 @@ convert (PApp f1 f2) = App (convert f1) (convert f2)
 convert (Abs x f) = Lambda x Nothing (convert f)
 
 
-
+-- A hack to get the 'reasonable' eta-long form.
+-- can easily broke with complicated situation, but it is
+-- safe in the sense that operationally it is fine because
+-- nothing can happen with eta expansion. But it may affect the
+-- reasoning though. 
 expand :: Exp -> Exp
 expand a@(Var x) = a
 expand a@(Const x) = Lambda "v" Nothing (App a (Var "v"))

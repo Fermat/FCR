@@ -19,7 +19,7 @@ data Env = Env{axioms :: [(Name, Exp)],
                rules :: [(Name, Exp)],
                tacs :: [((Name, Exp), [Tactic])],
                kinds ::[(Name, Kind)],
-               pfdecls ::[(Name, Exp, Exp)]
+               pfdecls ::[(Name, Exp, Exp)] -- (name, formula, proof)
               }
          deriving Show
 

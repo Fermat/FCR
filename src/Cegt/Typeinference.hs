@@ -13,6 +13,14 @@ import Data.List
 import Data.Char
 import Debug.Trace
 
+constrProof :: Name -> [ProofState] -> KSubst -> Exp -> Either Doc Exp
+constrProof n init ks exp =
+  let finals = construction n ks init exp in
+  case [s | s <- finals, success s] of
+        (_, pf, _, _, _):_ -> Right pf
+        [] -> let rs = map (\ (_, _, _ , Just m, _) -> m) finals
+              in Left $ sep rs
+
 env2 = [("H", KArrow Star (KArrow Star Star)), ("J", KArrow Star Star), ("G", KArrow Star Star), ("S", KArrow Star Star)]
 exp1 = (Lambda "a1" Nothing
         (Lambda "a2" Nothing
@@ -49,7 +57,7 @@ display s  = sep [ brackets (sep $ helper q) | (_,_,q ,Nothing, _) <- s ]
 helper [] = [empty]
 helper ((_,g,_):xs) = disp g : helper xs
 construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
-construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp) ++ "--" ++ (show $ display init)) False = undefined
+--construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp) ++ "--" ++ (show $ display init)) False = undefined
 construction n ks init (Var v) =
   concat $ map (\ x -> applyH ks x v) init
 

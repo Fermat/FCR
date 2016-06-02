@@ -3,6 +3,7 @@ module Main where
 import IProver
 import Cegt.Parser
 import Cegt.Typecheck
+import Cegt.Typeinference
 import Cegt.Interaction
 import Cegt.Loop
 import Cegt.Rewrite
@@ -11,7 +12,7 @@ import Cegt.Syntax
 import Cegt.PrettyPrinting
 
 import Control.Monad.Except hiding (join)
-import Text.PrettyPrint
+import Text.PrettyPrint hiding (semi)
 import Text.Parsec(ParseError)
 import System.Console.CmdArgs
 import Data.Typeable
@@ -167,7 +168,9 @@ loadFile filename = do cnts <- lift (readFile filename)
                                        modify (\ s -> addKinds ks s)
                                        modify (\ s -> addDecls pdl s)
 --                                       lift (print (show pfs))
+                                       semiauto 
                                        env <- get
+                                       
                                        case interpret env pfs of
                                          Right res -> do
                                            let res' = mapM (\ (n, (p, exp)) -> runProofCheck n p exp env) res
@@ -193,3 +196,29 @@ loadFile filename = do cnts <- lift (readFile filename)
                                  extendLms [] s = s
                                  extendLms ((n, (p, e)):xs) s = extendLms xs
                                                                   (extendLemma n p e s)
+
+semiauto :: StateT Env IO ()
+semiauto = do
+  env <- get
+  let pds = pfdecls env
+  mapM_ semi pds     
+
+semi :: (Name, Exp, Exp) -> StateT Env IO ()
+semi (n, f, pf) = do
+    env <- get
+    let ks = kinds env
+        lms = map (\ (n,(_, e)) -> (n, e)) $ lemmas env
+        as = axioms env
+        pEnv = as ++ lms
+        init = [(n, f, [([], f, (n, f):pEnv)], Nothing,0)]
+    case constrProof n init ks pf of    
+      Right e -> do
+        let e' = rebind e
+            res' = runProofCheck n e' f env
+        case res' of
+                 Left err -> lift $ print (disp err $$ text ("fail to load file "))
+                 Right _ ->             
+                   modify $ extendLemma n e' f
+      Left err -> do
+        lift $ print (disp err)
+        lift $ print (disp env)
