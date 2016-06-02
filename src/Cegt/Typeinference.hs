@@ -77,10 +77,14 @@ construction n ks init (App (Var v) p2) =
 --  x App (App y z) q
 construction n ks init a@(App p1 p2) = 
   case flatten a of
-    (Var v): xs | v == n ->
+    (Var v): xs ->
       let next = concat $ map (\ x -> applyH ks x v) init
       in foldl (\ z x -> construction n ks z x) next xs
-
+    (Const v): xs ->
+      let next = concat $ map (\ x -> applyH ks x v) init
+      in foldl (\ z x -> construction n ks z x) next xs
+         
+--    a -> error $ show a
 
 -- construction n ks init a@(App p1 p2) =
 

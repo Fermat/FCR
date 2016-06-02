@@ -9,6 +9,7 @@ g : forall p' f x z . (forall p x y . p (f (S x) (G (H x z))) => p (f x y)) =>
 
 g a1 a2 a3 = a3 (a1 (a2 (g (\ b1 . a1 (a2 b1)) a2 a3)))
 
+
 h : F (S Z) (G (H Z Z))
 h = g K1 K2 K3
 

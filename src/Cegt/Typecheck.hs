@@ -112,6 +112,7 @@ inferKind (Forall x f) = do
     False -> do unificationK k Star
                 return Formula
 
+inferKind a = error $ show a ++ "from function inferKind"
 isForm (Imply x y) = True
 isForm (Forall x y) = True
 isForm (App _ _) = False
