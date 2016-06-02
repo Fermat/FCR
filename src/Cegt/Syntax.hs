@@ -289,17 +289,21 @@ subst p (Var x) (Lambda y (Just t) p1) =
 -- normalize type expresion
 normalize :: Exp -> Exp
 -- normalize r | trace ("normalize " ++ show r) False = undefined
-normalize (Var a) = Var a
--- normalize Star = Star
-normalize (Const a) = Const a
-normalize (Abs x t) = Abs x (normalize t)
-normalize (PApp (Abs x t') t) = runSubst t (Var x) t'
-normalize (PApp (Var x) t) = PApp (Var x) (normalize t)
-normalize (PApp (Const x) t) = PApp (Const x) (normalize t)
-normalize (PApp t' t) = case (PApp (normalize t') (normalize t)) of
-                              a@(PApp (Abs x t') t) -> normalize a
-                              b -> b
-normalize (Imply t t') = Imply (normalize t) (normalize t')
-normalize (Forall x t) = Forall x (normalize t)
+normalize t = let t1 = norm t
+                  t2 = norm t1
+              in if t1 `alphaEq` t2 then t1 else normalize t2
+                                                 
+norm (Var a) = Var a
+norm (Const a) = Const a
+norm (Abs x t) = Abs x (norm t)
+norm (PApp (Abs x t') t) = runSubst t (Var x) t'
+norm (PApp (Var x) t) = PApp (Var x) (norm t)
+norm (PApp (Const x) t) = PApp (Const x) (norm t)
+norm (PApp t' t) = 
+  case (PApp (norm t') (norm t)) of
+    a@(PApp (Abs x t') t) -> norm a
+    b -> b
+norm (Imply t t') = Imply (norm t) (norm t')
+norm (Forall x t) = Forall x (norm t)
 
   
