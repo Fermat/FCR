@@ -7,8 +7,10 @@ g : forall p' f x z . (forall p x y . p (f (S x) (G (H x z))) => p (f x y)) =>
                               (forall p x y . p (J y) => p (G (H x y))) => 
                                    p' (f (S x) (G (H x z)))
 
-g a1 a2 a3 = a3 (a1 (a2 (g (\ b1 . a1 (a2 b1)) a2 a3)))
--- why the hell does this work? g a1 a2 a3 = a1 (a1 (a2 (g (\ b1 . a1 (a2 b1)) a2 a3)))
+-- g a1 a2 a3 = a3 (a1 (a2 (g (\ b1 . a1 (a2 b1)) a2 a3)))
+-- why the hell does this work? 
+-- thankgoodness we have faithfulness
+g a1 a2 a3 = a1 (a1 (a1 (a2 (g (\ b1 . a1 (a2 b1)) a2 a3))))
 
 
 h : F (S Z) (G (H Z Z))

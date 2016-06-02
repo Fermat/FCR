@@ -188,7 +188,7 @@ applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k =
                   ss = runHMatch ks head'' goal -- trace (show head''++ "--from rhm--"++ show goal ++ show k) $
               in case ss of
                 [] -> let m' = Just $ text "can't match" <+> disp head'' $$ text "against"
-                            <+> disp goal $$ (nest 2 (text k <+> text ":" <+> disp f)) $$
+                            <+> disp goal $$ (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
                             (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
                    in [(gn, pf, (pos, goal, gamma):res, m', i)]
                 _ -> do
