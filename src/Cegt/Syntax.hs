@@ -285,7 +285,22 @@ subst p (Var x) (Lambda y (Just t) p1) =
            modify (+1)
            c1 <- subst (Var (y++ show n)) (Var y) p1
            subst p (Var x) (Lambda (y++ show n) (Just t) c1)
-           
+
+normEvidence (Var y) = (Var y)
+normEvidence (Const y) = (Const y)
+normEvidence (Imply f1 f2) = Imply (normEvidence f1)
+                             (normEvidence f2)
+
+normEvidence (App f1 f2) = App (normEvidence f1)
+                           (normEvidence f2)
+normEvidence (TApp f1 f2) = TApp (normEvidence f1)
+                            (normalize f2)
+
+normEvidence a@(PApp f1 f2) = normalize a
+normEvidence a@(Abs b f2) = normalize a
+normEvidence (Forall a f2) = Forall a $ normalize f2
+normEvidence (Lambda a Nothing f) = Lambda a Nothing (normEvidence f)
+normEvidence (Lambda y (Just t) p1) = Lambda y (Just $ normalize t) (normEvidence p1)
 -- normalize type expresion
 normalize :: Exp -> Exp
 -- normalize r | trace ("normalize " ++ show r) False = undefined

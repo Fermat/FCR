@@ -196,7 +196,7 @@ applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k =
                     sub <- ss
                     let evars = free head''
                         refresher = [(x, t) | x <- evars, (y, t) <- sub, x == y]
-                        pf1 = applyE refresher pf
+                        pf1 = normEvidence $ applyE refresher pf
                         res' = map (\ (a, gl, gm) ->
                                      (a, normalize $ applyE refresher gl,
                                       (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm))) res
