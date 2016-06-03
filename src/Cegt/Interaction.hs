@@ -175,7 +175,7 @@ applyH :: KSubst -> ProofState -> Name -> [ProofState]
 applyH ks (gn, pf, [], m, i) k =
     let m' = Just $ text "no more subgoals" in [(gn, pf, [], m', i)]
 
-applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k = 
+applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k = 
   case lookup k gamma of
     Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
       [(gn, pf, (pos, goal, gamma):res, m', i)]
@@ -191,23 +191,39 @@ applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k =
                             <+> disp (goal) $$ (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
                             (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
                    in [(gn, pf, (pos, goal, gamma):res, m', i)]
-                _ -> do
-                  sub <-  ss -- trace (show ss ++ "this is ss")$
-                  let body' = map normalize $ (map (applyE sub) body'')
-                      head' = normalize $ applyE sub head''
-                      np = ([ s | r <- fresh, let s = case lookup r sub of
-                                                        Nothing -> (Var r)
-                                                        Just t -> t
-                                ])  -- reordering argument (yy, s') <- sub, let s = (if r == yy then s' else (Var r))
-                      name = case k of
+                _ ->
+                  if null body && null vars then do
+                    sub <- ss
+                    let evars = free head''
+                        refresher = [(x, t) | x <- evars, (y, t) <- sub, x == y]
+                        pf1 = applyE refresher pf
+                        res' = map (\ (a, gl, gm) ->
+                                     (a, normalize $ applyE refresher gl,
+                                      (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm))) res
+                        head' = normalize $ applyE sub head''
+                        name = Var k
+                        contm = name
+                        pf' = replace pf1 pos contm
+                        
+                    return (gn, pf', res', Nothing, i)  
+
+                  else do
+                    sub <-  ss -- trace (show ss ++ "this is ss")$
+                    let body' = map normalize $ (map (applyE sub) body'')
+                        head' = normalize $ applyE sub head''
+                        np = ([ s | r <- fresh, let s = case lookup r sub of
+                                                      Nothing -> (Var r)
+                                                      Just t -> t
+                                  ])  -- reordering argument (yy, s') <- sub, let s = (if r == yy then s' else (Var r))
+                        name = case k of
                                n:_ -> if isUpper n then Const k else Var k
                                a -> error "unknow error from apply"
-                      contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
-                      pf' = replace pf pos contm
-                      zeros = makeZeros $ length body'
-                      ps = map (\ x -> pos++x++[1]) zeros
-                      new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
-                  return (gn, pf', new++res, Nothing, i')  
+                        contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
+                        pf' = replace pf pos contm
+                        zeros = makeZeros $ length body'
+                        ps = map (\ x -> pos++x++[1]) zeros
+                        new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
+                    return (gn, pf', new++res, Nothing, i')  
 
 applyH ks (gn, pf, (pos, goal, gamma):res, m@(Just _), i) k =
   [(gn, pf, (pos, goal, gamma):res, m, i)]
