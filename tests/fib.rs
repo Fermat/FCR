@@ -7,6 +7,9 @@ g : forall a b x .
 g b a = b (g a (\ b1 . a (b b1)))
 
 
+h : B x 
+h = g Kb Ka
+
 {- This is an example of wrong order.
   with existential var, the guideline is always put 
   (the sub-formula that doesn't contain ex-var in the head) first. 
