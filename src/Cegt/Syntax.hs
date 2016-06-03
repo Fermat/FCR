@@ -74,7 +74,7 @@ convert (Abs x f) = Lambda x Nothing (convert f)
 -- reasoning though. 
 expand :: Exp -> Exp
 expand a@(Var x) = a
-expand a@(Const x) = Lambda "v" Nothing (App a (Var "v"))
+expand a@(Const x) = Lambda "v'" Nothing (App a (Var "v'"))
 expand (Lambda x Nothing t) = Lambda x Nothing (expand t)
 expand (App (Var x) p) =  App (Var x) (expand p)
 expand (App (Const x) p) = App (Const x) (expand p)
@@ -84,8 +84,8 @@ expand a@(App p1 p2) =
       let res = map expand' xs
       in reApp ((Var v): res)
 
-expand' a@(Var x) =  Lambda "v" Nothing (App a (Var "v"))
-expand' a@(Const x) = Lambda "v" Nothing (App a (Var "v"))
+expand' a@(Var x) =  Lambda "v'" Nothing (App a (Var "v'"))
+expand' a@(Const x) = Lambda "v'" Nothing (App a (Var "v'"))
 expand' (Lambda x Nothing t) = Lambda x Nothing (expand t)
 expand' (App (Var x) p) =  App (Var x) (expand p)
 expand' (App (Const x) p) = App (Const x) (expand p)

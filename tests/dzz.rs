@@ -5,6 +5,9 @@ g : forall p d . (forall p x y . p (d x (S y)) => p (d (S x) y)) =>
                (forall p y . p (d (S y) Z) => p (d Z y)) => p (d Z Z)
 g a1 a2 = a2 (a1 (g a1 (\ c1 . a2 (a1 c1))))
 
+e : D Z Z
+e = g A B
+
 {-
 g : forall d. (forall p x y . p (d x (S y)) => p (d (S x) y)) => 
               (forall p y . p (d (S y) Z) => p (d Z y)) => d Z Z

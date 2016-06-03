@@ -117,7 +117,7 @@ intros (gn, pf, (pos, goal, gamma):res, Nothing, i) ns =
       lv = length vars
       num = lv + lb
       impNames = ns 
-      absNames = zipWith (\ x y -> x ++ show y) vars [i..]
+      absNames = zipWith (\ x y -> x ++ show y ++ "'") vars [i..]
       sub = zip vars (map Const absNames)
       body' = map (\ x -> applyE sub x) body
       head' = applyE sub head
@@ -181,21 +181,24 @@ applyH ks (gn, pf, (pos, goal, gamma):res, Nothing, i) k =
       [(gn, pf, (pos, goal, gamma):res, m', i)]
     Just f -> let (vars, head, body) = separate f
                   i' = i + length vars
-                  fresh = map (\ (v, j) -> v ++ show j) $ zip vars [i..]
+                  fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
                   renaming = zip vars (map Var fresh)
                   body'' = map (applyE renaming) body
                   head'' = applyE renaming head
                   ss = runHMatch ks head'' goal -- trace (show head''++ "--from rhm--"++ show goal ++ show k) $
               in case ss of
-                [] -> let m' = Just $ text "can't match" <+> disp head'' $$ text "against"
-                            <+> disp goal $$ (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                [] -> let m' = Just $ text "can't match" <+> disp (head'') $$ text "against"
+                            <+> disp (goal) $$ (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
                             (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
                    in [(gn, pf, (pos, goal, gamma):res, m', i)]
                 _ -> do
                   sub <-  ss -- trace (show ss ++ "this is ss")$
                   let body' = map normalize $ (map (applyE sub) body'')
                       head' = normalize $ applyE sub head''
-                      np = ([ s | r <- fresh, (yy, s) <- sub, r == yy])  -- reordering argument
+                      np = ([ s | r <- fresh, let s = case lookup r sub of
+                                                        Nothing -> (Var r)
+                                                        Just t -> t
+                                ])  -- reordering argument (yy, s') <- sub, let s = (if r == yy then s' else (Var r))
                       name = case k of
                                n:_ -> if isUpper n then Const k else Var k
                                a -> error "unknow error from apply"

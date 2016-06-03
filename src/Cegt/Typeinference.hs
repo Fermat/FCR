@@ -49,7 +49,11 @@ man3 = construction "h" env2 initstate1 (Var "h")
 g1 = PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (PApp (Const "S") (Var "x")))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "z")))))
 
 h1 = PApp (Var "p'1") (PApp (PApp (Var "f2") (PApp (Const "S") (Var "x3"))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x3")) (Var "z4"))))
-man2 = runHMatch env2 h1 g1 
+man2 = runHMatch env2 h1 g1
+
+l1 = PApp (Const "`p8") (PApp (Var "a5") (Const "`y9"))
+l2 = PApp (Const "`p8") (PApp (Const "`a0") (PApp (Const "`b1") (Const "`y9")))
+tl1 = runHMatch [] l1 l2 --sep [ disp s | s <- evalState (hmatch [] l1 l2) 0] 
 
 success :: ProofState -> Bool
 success (gn,pf,[], Nothing, i) = True

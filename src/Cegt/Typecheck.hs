@@ -299,7 +299,7 @@ genProj :: Kind -> [Exp]
 genProj k = let ks = flattenK k
                 l = (length ks) - 1
             in if l == 0 then []
-               else let vars = map (\ y -> "x"++ show y) $ take l [1..]
+               else let vars = map (\ y -> "x"++ show y ++ "'") $ take l [1..]
                         ts = map (\ z -> foldr (\ x y -> Abs x y) (Var z) vars) vars
                     in ts
 
@@ -312,8 +312,8 @@ genImitation head k1 k2 = do
                                l = take arity' [n..]
                                lb = take arity [1..]
                                n' = n + arity'
-                               fvars = map (\ x -> "hd" ++ show x) l
-                               bvars = map (\ x -> "b" ++ show x) lb
+                               fvars = map (\ x -> "h" ++ show x ++ "'") l
+                               bvars = map (\ x -> "b" ++ show x ++ "'") lb
                                bvars' = map Var bvars
                                args = map (\ c -> (foldl' (\ z x -> PApp z x) (Var c) bvars')) fvars
                                body = foldl' (\ z x -> PApp z x) head args
