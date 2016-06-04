@@ -131,12 +131,12 @@ eigen = do
   return (Const n)
 
 -- parser for FType--
-rule :: Parser Exp
-rule = do
-  t1 <- term
-  reserved "~>"
-  t2 <- term
-  return $ Arrow t1 t2
+-- rule :: Parser Exp
+-- rule = do
+--   t1 <- term
+--   reserved "->"
+--   t2 <- term
+--   return $ Arrow t1 t2
 
 term :: Parser Exp
 term = buildExpressionParser typeOpTable base
@@ -148,7 +148,7 @@ binOp :: Assoc -> String -> (a -> a -> a) -> Operator String u (State SourcePos)
 binOp assoc op f = Infix (reservedOp op >> return f) assoc
 
 typeOpTable :: [[Operator String u (State SourcePos) Exp]]
-typeOpTable = [[binOp AssocRight "=>" Imply, binOp AssocRight "~>" Arrow]]
+typeOpTable = [[binOp AssocRight "=>" Imply, binOp AssocRight "->" Arrow]]
 
 -- parse type expression
 base :: Parser Exp

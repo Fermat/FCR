@@ -42,10 +42,11 @@ aToKind n | n == 0 = Star
                      
 instance Disp Env where
   disp (Env as lms rs ts ks pfs) =
-    text "axioms" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) as)) $$ 
-    text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms)) $$ text "rewrite rules" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) rs)) $$
+    text "rewrite rules" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) rs)) $$
     text "kinds" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) ks)) $$
-    text "proof declarations" $$ (sep (map (\ (n, exp, pf) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) pfs))
+    text "axioms" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) as)) $$ 
+    text "proof declarations" $$ (sep (map (\ (n, exp, pf) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) pfs)) $$
+    text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms)) 
                          -- $$ text "textual lemma" $$
                          -- (vcat (map
                          --        (\ ((n, exp),pfs) ->

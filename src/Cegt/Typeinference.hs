@@ -17,7 +17,7 @@ constrProof :: Name -> [ProofState] -> KSubst -> Exp -> Either Doc Exp
 constrProof n init ks exp =
   let finals = construction n ks init exp in
   case [s | s <- finals, success s] of
-        (_, pf, _, _, _):_ -> Right pf
+        (_, pf, _, _, _):_ -> Right pf -- trace (show $ disp pf) $ 
         [] -> let rs = map (\ a@(_, _, (_,g,_):_ , m, _) -> case m of
                                Nothing -> text "unfinish goal" <+> disp g
                                Just m' -> m' ) finals
