@@ -107,7 +107,7 @@ instance Disp Exp where
 
   disp (a@(Arrow t1 t2)) =
     disp t1
-    <+> text "->"
+    <+> text "<="
     <+> disp t2
 
   disp (a@(Forall x f)) =

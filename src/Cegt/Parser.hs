@@ -148,7 +148,7 @@ binOp :: Assoc -> String -> (a -> a -> a) -> Operator String u (State SourcePos)
 binOp assoc op f = Infix (reservedOp op >> return f) assoc
 
 typeOpTable :: [[Operator String u (State SourcePos) Exp]]
-typeOpTable = [[binOp AssocRight "=>" Imply, binOp AssocRight "->" Arrow]]
+typeOpTable = [[binOp AssocRight "=>" Imply, binOp AssocRight "<=" Arrow]]
 
 -- parse type expression
 base :: Parser Exp
@@ -216,7 +216,7 @@ gottlobStyle = Token.LanguageDef
                     "tactic", "deriving", "Ind"
                   ]
                , Token.reservedOpNames =
-                    ["\\", "->", "|", ".","=", "::", ":", "=>"]
+                    ["\\", "->", "<=", ".","=", "::", ":", "=>"]
                 }
 
 tokenizer :: Token.GenTokenParser String u (State SourcePos)

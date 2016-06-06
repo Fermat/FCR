@@ -1,5 +1,5 @@
-Ka : A x ~> A (B x)
-Kb : B x ~> A x
+Ka : A x <= A (B x)
+Kb : B x <= A x
 
 g : forall a b x .
       (forall p y . p (a y) => p (b y)) => 

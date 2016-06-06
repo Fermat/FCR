@@ -1,5 +1,5 @@
-A : D (S x) y -> D x (S y)
-B : D Z y -> D (S y) Z
+A : D (S x) y <= D x (S y)
+B : D Z y <= D (S y) Z
 
 g : forall p d . (forall p x y . p (d x (S y)) => p (d (S x) y)) => 
                (forall p y . p (d (S y) Z) => p (d Z y)) => p (d Z Z)

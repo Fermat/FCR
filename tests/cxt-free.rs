@@ -1,11 +1,11 @@
-K1 : Bl (B x) ~> B (Bl x)
-K2 : Bl (Cl (Dl x)) ~> B (Cl (D x))
-K3 : D (Dl x) ~> Dl (D x)
-K4 : Al (X x) ~> Al (Bl (Bl x))
-K5 : B (X x) ~> X (Bl x)
-K6 : Bl (Cl (Dl x)) ~> X (Cl (Y x))
-K7 : Y (D x) ~> Dl (Y x)
-K8 : Y (El x) ~> Dl (Dl (El x))
+K1 : Bl (B x) <= B (Bl x)
+K2 : Bl (Cl (Dl x)) <= B (Cl (D x))
+K3 : D (Dl x) <= Dl (D x)
+K4 : Al (X x) <= Al (Bl (Bl x))
+K5 : B (X x) <= X (Bl x)
+K6 : Bl (Cl (Dl x)) <= X (Cl (Y x))
+K7 : Y (D x) <= Dl (Y x)
+K8 : Y (El x) <= Dl (Dl (El x))
 
 f : forall p0 c b d y . (forall p x . p (B (Bl x)) => p (Bl (B x))) =>
     	      	      	(forall p x . p (B ( c (D x))) => p (Bl ( c (Dl x)))) =>
