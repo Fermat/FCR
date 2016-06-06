@@ -15,7 +15,7 @@ import Debug.Trace
 
 constrProof :: Name -> [ProofState] -> KSubst -> Exp -> Either Doc Exp
 constrProof n init ks exp =
-  let finals = construction n ks init exp in
+  let finals = construction' n ks init exp in
   case [s | s <- finals, success s] of
         (_, pf, _, _, _):_ -> Right pf -- trace (show $ disp pf) $ 
         [] -> let rs = map (\ a@(_, _, (_,g,_):_ , m, _) -> case m of
@@ -63,6 +63,15 @@ success _ = False
 display s  = sep [ brackets (sep $ helper q) | (_,_,q ,Nothing, _) <- s ]
 helper [] = [empty]
 helper ((_,g,_):xs) = disp g : helper xs
+
+-- a wraper on construction just to handle loop better.
+construction' :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
+
+construction' n ks init a@(App t_1 t_2) =
+  let  new = map (\ x -> intros x []) init 
+  in construction n ks new a
+construction' n ks init a = construction n ks init a     
+
 construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
 --construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp) ++ "--" ++ (show $ display init)) False = undefined
 construction n ks init (Var v) =
