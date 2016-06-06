@@ -32,7 +32,9 @@ strategy.
 1. Support existential var
 2. checking algebraic property
 3. evaluator for the corec
-
+-----------------------------------------
+1. checking algebraic property
+2. evaluator for the corec
 
 
 
