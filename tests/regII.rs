@@ -1,7 +1,7 @@
-K1 : Z (L x) ~> L (Z x)
-K2 : R (Z x) ~> Z (R x)
-K3 : Z (L (L x)) ~> Z (L (R x))
-K4 : R (R (Z x)) ~> L (Z (R (Z x)))
+K1 : Z (L x) <= L (Z x)
+K2 : R (Z x) <= Z (R x)
+K3 : Z (L (L x)) <= Z (L (R x))
+K4 : R (R (Z x)) <= L (Z (R (Z x)))
 
 f : forall p l r y . (forall p x . p (l (Z x)) => p (Z (l x))) =>
                     (forall p x . p (Z (L (r x))) => p (Z (L (l x)))) =>
