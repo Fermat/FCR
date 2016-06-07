@@ -1,7 +1,7 @@
-K1 : A (L x) ~> L (A x)
-K2 : R (A x) ~> A (R x)
-K3 : B (L x) ~> B (R x)
-K4 : R (B x) ~> L (A (B x))
+K1 : A (L x) <= L (A x)
+K2 : R (A x) <= A (R x)
+K3 : B (L x) <= B (R x)
+K4 : R (B x) <= L (A (B x))
 
 
 f : forall p l r y . (forall p x . p (l (A x)) => p (A (l x))) =>

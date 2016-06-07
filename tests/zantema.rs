@@ -1,5 +1,5 @@
-A : F Z (S x) y ~> F Z x (S y)
-B : F Z (S x) y ~> F x y (S (S Z))
+A : F Z (S x) y <= F Z x (S y)
+B : F Z (S x) y <= F x y (S (S Z))
 
 f : forall p f . (forall p x y . p (f Z x (S y)) => p (f Z (S x) y)) =>
     	         (forall p y . p (f Z y (S (S Z))) => p (f Z (S Z) y)) => 
