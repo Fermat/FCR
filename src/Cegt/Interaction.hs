@@ -188,35 +188,11 @@ applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k =
                   ss = runHMatch ks head'' goal -- trace (show head''++ "--from rhm--"++ show goal ++ show k) $
               in case ss of
                 [] ->
-                  let ss' = runHMatch ks goal head'' in -- see if a reverse can do the job
-                  case ss' of
-                        [] -> 
                           let m' = Just $ text "can't match" <+> disp (head'') $$ text "against"
                                    <+> disp (goal) $$ (nest 2 (text "when applying" <+>text k <+> text ":" <+>
                                                                disp f)) $$
                                    (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
                           in [(gn, pf, (pos, goal, gamma):res, m', i)]
-                        _ -> do
-                          sub <- ss'
-                          let evars = free goal
-                              refresher = [(x, t) | x <- evars, (y, t) <- sub, x == y]
-                              pf1 = normEvidence $ applyE refresher pf
-                              res' = map (\ (a, gl, gm) ->
-                                           (a, normalize $ applyE refresher gl,
-                                            (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm))) res
-                              np = map Var fresh
-                              name = case k of
-                                n:_ -> if isUpper n then Const k else Var k
-                                a -> error "unknow error from apply"
-                              body' = map (\ x -> normalize $ applyE refresher x) body''
-                              contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
-                              pf' = replace pf1 pos contm
-                              zeros = makeZeros $ length body''
-                              ps = map (\ x -> pos++x++[1]) zeros
-                              gamma' = map (\ (x, y) -> (x, normalize $ applyE refresher y)) gamma
-                              new = map (\(p, g) -> (p, g, gamma')) $ zip ps body'
-                          return (gn, pf', new++res', Nothing, i)  
-
                 _ ->
                   if null body && null vars then do
                     sub <- ss
