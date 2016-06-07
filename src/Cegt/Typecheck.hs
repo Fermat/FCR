@@ -431,3 +431,88 @@ boundVars vs (Var x) = if x `elem` vs then [x] else []
 boundVars vs (PApp t1 t2) = boundVars vs t1 ++ boundVars vs t2
 varOrd :: [Name] -> Exp -> Bool
 varOrd vs t = vs == boundVars vs t
+
+
+
+hunif ::  KSubst -> [(Exp, Exp)] -> State Int [Subst]
+-- hunif ks t1 t2 | trace ("(" ++show (disp t1) ++ " --hunif " ++show (disp t2)++")") False = undefined
+hunif ks ((t1, t2):res) | Left err <- runKinding' t1 ks = error $ show err ++ show ks ++ show t1
+hunif ks ((t1, t2):res) | Left err <- runKinding' t2 ks = error $ show err 
+hunif ks ((t1, t2):res) | Right (k1, sub1) <- runKinding' t1 ks, Right (k2, sub2) <- runKinding' t2 ks = do
+  let t1' = flatten t1
+      t2' = flatten t2
+  case (t1', t2') of
+    ((Const x):xs, (Const y):ys) ->
+      if x == y then
+        hunif ks ((zip xs ys):res)
+      else return []
+    ((Var x):xs, (Const y):ys) ->
+      case (lookup x sub1, lookup y (ks++sub2)) of
+        (Nothing, _) -> error $ show (text "unkind variable:" <+> text x)
+        (_, Nothing) -> error $ show (text "unkind constant:" <+> text y)
+        (Just kx, Just ky) ->
+          let kx' = ground kx
+              ky' = ground ky in
+            do
+              n <- get
+              let pjs = genProj kx'
+                  (imi, n') = runState (genImitation (Const y) ky' kx') n
+                  renew = normalize $ runSubst imi (Var x) t1
+                  new2 = normalize $ runSubst imi (Var x) t2
+                  imiAndProj = (renew, new2) : map (\ x -> (x, new2)) xs
+                  oldsubst = [(x, imi)]: map (\ y -> [(x,y)]) pjs
+              put n'
+              bs <- hunif ks imiAndProj
+              let
+                ps = zip bs oldsubst
+                res = map (\ (x, y) -> map (\z -> concat $ merge' z y) x) ps
+              return (concat res)
+    ((Const y):xs, (Var x):ys) ->
+      case (lookup x sub1, lookup y (ks++sub2)) of
+        (Nothing, _) -> error $ show (text "unkind variable:" <+> text x)
+        (_, Nothing) -> error $ show (text "unkind constant:" <+> text y)
+        (Just kx, Just ky) ->
+          let kx' = ground kx
+              ky' = ground ky in
+            do
+              n <- get
+              let pjs = genProj kx'
+                  (imi, n') = runState (genImitation (Const y) ky' kx') n
+                  renew = normalize $ runSubst imi (Var x) t1
+                  imiAndProj = (renew, t2) : map (\ x -> (x, t2)) xs
+                  oldsubst = [(x, imi)]: map (\ y -> [(x,y)]) pjs
+              put n'
+              bs <- mapM (\ (x, y) -> hmatch ks x y) imiAndProj
+              let
+                ps = zip bs oldsubst
+                res = map (\ (x, y) -> map (\z -> concat $ merge' z y) x) ps
+              return (concat res)
+              
+    ((Var x):xs, (Var y):ys) | x == y ->
+        do
+          bs <- mapM (\ (x, y) -> hmatch ks x y) (zip xs ys)
+          let comps = compL bs
+              res = concat $ map mergeL comps
+          return res
+                             | otherwise ->
+          case (lookup x sub1, lookup y (ks++sub2)) of
+            (Nothing, _) -> error $ show (text "unkind variable:" <+> text x)
+            (_, Nothing) -> error $ show (text "unkind constant:" <+> text y)
+            (Just kx, Just ky) ->
+              let kx' = ground kx
+                  ky' = ground ky in
+                do
+                  n <- get
+                  let pjs = genProj kx'
+                      (imi, n') = runState (genImitation (Var y) ky' kx') n
+                      renew = normalize $ runSubst imi (Var x) t1
+                      imiAndProj = (renew, t2) : map (\ x -> (x, t2)) xs
+                      oldsubst = [(x, imi)]: map (\ y -> [(x,y)]) pjs
+                  put n'
+                  bs <- mapM (\ (x, y) -> hmatch ks x y) imiAndProj
+                  let
+                    ps = zip bs oldsubst
+                    res = map (\ (x, y) -> map (\z -> concat $ merge' z y) x) ps
+                  return (concat res)
+
+    (x, y) -> return [] -- error $ show x ++ show y -- (text "err" <+> disp x <+> disp y <+> disp x' <+> disp y')-- 
