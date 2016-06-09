@@ -433,7 +433,7 @@ varOrd :: [Name] -> Exp -> Bool
 varOrd vs t = vs == boundVars vs t
 
 
-
+{-
 hunif ::  KSubst -> [(Exp, Exp)] -> State Int [Subst]
 -- hunif ks t1 t2 | trace ("(" ++show (disp t1) ++ " --hunif " ++show (disp t2)++")") False = undefined
 hunif ks ((t1, t2):res) | Left err <- runKinding' t1 ks = error $ show err ++ show ks ++ show t1
@@ -516,3 +516,4 @@ hunif ks ((t1, t2):res) | Right (k1, sub1) <- runKinding' t1 ks, Right (k2, sub2
                   return (concat res)
 
     (x, y) -> return [] -- error $ show x ++ show y -- (text "err" <+> disp x <+> disp y <+> disp x' <+> disp y')-- 
+-}
