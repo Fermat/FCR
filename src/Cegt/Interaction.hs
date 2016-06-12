@@ -201,7 +201,7 @@ applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k =
                         pf1 = normEvidence $ applyE refresher pf
                         res' = map (\ (a, gl, gm) ->
 --                                     (a, normalize $ applyE refresher gl, gm)) res
-                                     (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm))) res
+                                     (a, normalize $ applyE refresher gl, (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm))) res
                         head' = normalize $ applyE sub head''
                         name = case k of
                                    n:_ -> if isUpper n then Const k else Var k

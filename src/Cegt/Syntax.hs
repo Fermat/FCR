@@ -59,7 +59,12 @@ toFormula env = map (\(n,e)-> (n, helper e)) env
    where helper a@(Arrow t t') =
            let vars = "p" : free a in
            foldr (\ z x -> Forall z x) (Imply (PApp (Var "p") t') (PApp (Var "p") t)) vars
+         helper a@(Imply t t') =
+           let vars = free a in
+           foldr (\ z x -> Forall z x) a vars
+         helper a = a
 
+           
 convert :: Exp -> Exp
 convert (Var x) = (Var x)
 convert (Const x) = (Const x)

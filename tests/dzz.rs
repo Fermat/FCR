@@ -1,8 +1,9 @@
 A : D (S x) y <= D x (S y)
 B : D Z y <= D (S y) Z
+C : forall y . D (S y) Z => D Z y 
 
-g : forall p d . (forall p x y . p (d x (S y)) => p (d (S x) y)) => 
-               (forall p y . p (d (S y) Z) => p (d Z y)) => p (d Z Z)
+g : forall d . (forall x y . d x (S y) => d (S x) y) => 
+               (forall y .  d (S y) Z => d Z y) => d Z Z
 g a1 a2 = a2 (a1 (g a1 (\ c1 . a2 (a1 c1))))
 
 e : D Z Z

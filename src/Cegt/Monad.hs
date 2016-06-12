@@ -25,8 +25,13 @@ data Env = Env{axioms :: [(Name, Exp)],
 
 constKinds :: [(Name, Exp)] -> [(Name, Kind)]
 constKinds rules =
-  let res = concat $ map (\ (_, Arrow t1 t2) -> getKinds t1 ++ getKinds t2) rules
+  let res = concat $ map (\ (_, t) -> helper t) rules
   in nub $ res
+  where  helper (Arrow t1 t2) = getKinds t1 ++ getKinds t2
+         helper (a@(Forall x t)) = helper $ viewFBody a
+         helper (Imply t1 t2) = helper t1 ++ helper t2
+         helper a = getKinds a
+         
 getKinds :: Exp -> [(Name, Kind)]
 getKinds t = case flatten t of
                 (Const x):xs -> let arity = length xs
