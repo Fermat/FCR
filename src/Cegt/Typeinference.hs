@@ -18,9 +18,14 @@ constrProof n init ks exp =
   let finals = construction' n ks init exp in
   case [s | s <- finals, success s] of
         (_, pf, _, _, _):_ -> Right pf -- trace (show $ disp pf) $ 
-        [] -> let rs = map (\ a@(_, _, (_,g,_):_ , m, _) -> case m of
-                               Nothing -> text "unfinish goal" <+> disp g
-                               Just m' -> m' ) finals
+        [] -> let rs = map (\ a -> case a of
+                               (_, _, (_,g,_):_ , m, _) -> case m of
+                                                Nothing -> text "unfinish goal" <+> disp g
+                                                Just m' -> m'
+                               (_, _, [] , m, _) -> case m of
+                                                Nothing -> text "strange" 
+                                                Just m' -> m' 
+                           ) finals
               in Left $ sep (map (\ (d, i) -> text "Wrong situation" <+> int i $$ nest 2 d)
                              $ zip rs [1..])
 
@@ -75,6 +80,9 @@ construction' n ks init a = construction n ks init a
 construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
 --construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp) ++ "--" ++ (show $ display init)) False = undefined
 construction n ks init (Var v) =
+  concat $ map (\ x -> applyH ks x v) init
+
+construction n ks init (Const v) =
   concat $ map (\ x -> applyH ks x v) init
 
 construction n ks init a@(Lambda x Nothing t) =

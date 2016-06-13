@@ -76,8 +76,10 @@ convert (Abs x f) = Lambda x Nothing (convert f)
 -- can easily broke with complicated situation, but it is
 -- safe in the sense that operationally it is fine because
 -- nothing can happen with eta expansion. But it may affect the
--- reasoning though. 
+-- reasoning though. Welp, decided not to be too clever in this case.
 expand :: Exp -> Exp
+expand b = b
+{-
 expand a@(Var x) = a
 expand a@(Const x) = Lambda "v'" Nothing (App a (Var "v'"))
 expand (Lambda x Nothing t) = Lambda x Nothing (expand t)
@@ -88,6 +90,8 @@ expand a@(App p1 p2) =
     (Var v): xs -> 
       let res = map expand' xs
       in reApp ((Var v): res)
+    b -> reApp b     
+
 
 expand' a@(Var x) =  Lambda "v'" Nothing (App a (Var "v'"))
 expand' a@(Const x) = Lambda "v'" Nothing (App a (Var "v'"))
@@ -99,7 +103,7 @@ expand' a@(App p1 p2) =
     (Var v): xs -> 
       let res = map expand' xs
       in reApp ((Var v): res)
-
+-}
 -- free vars of exp
 free = S.toList . freeVar 
 -- freeVar :: Exp -> [Name]
