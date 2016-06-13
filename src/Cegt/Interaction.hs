@@ -179,7 +179,16 @@ applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k =
   case lookup k gamma of
     Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
       [(gn, pf, (pos, goal, gamma):res, m', i)]
-    Just f -> let (vars, head, body) = separate f
+    Just f ->
+      if f `alphaEq` goal then
+        let name = case k of
+              n:_ -> if isUpper n then Const k else Var k
+              a -> error "unknow error from use"
+            contm = name
+            pf' = replace pf pos contm
+        in return (gn, pf', res, Nothing, i)
+      else 
+      let         (vars, head, body) = separate f
                   i' = i + length vars
                   fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
                   renaming = zip vars (map Var fresh)

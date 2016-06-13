@@ -1,12 +1,12 @@
 B : forall p y . p (D (S y) Z) => p (D Z y)
 A : forall p x y . p (D x (S y)) => p (D (S x) y)
 
-g : forall d . (forall x y . d x (S y) => d (S x) y) => 
-               (forall y .  d (S y) Z => d Z y) => d Z Z
-g a1 a2 = (a1 (g a1 (\ c1 . a2 (a1 c1))))
+g : forall p d . (forall p x y . p (d x (S y)) => p (d (S x) y)) => 
+               (forall p y .  p (d (S y) Z) => p (d Z y)) => p (d Z Z)
+g a1 a2 = a2 (a1 (g (\ c . a1 c) (\ c1 . a2 (a1 c1))))
 
 e : D Z Z
-e = g A B
+e = g A B 
 
 {-
 l : forall a . a => a
