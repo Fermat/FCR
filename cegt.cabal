@@ -23,6 +23,7 @@ library
                       Cegt.Interaction,
                       Cegt.Typecheck,
                       Cegt.Typeinference,
+                      Cegt.Guardness,
                       Cegt.Monad,
                       Cegt.Loop,
                       Cegt.PrettyPrinting

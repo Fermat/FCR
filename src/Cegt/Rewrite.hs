@@ -54,12 +54,23 @@ replace (Lambda y t t2) (x:xs) r | x == 2 =
   Lambda y t (replace t2 xs r) 
 
 
+retrieve :: Exp -> Pos -> Maybe Exp
+-- retrieve e pos r | trace ("retrieve " ++ show pos) False = undefined
+retrieve e [] = Just e
+retrieve (App t1 t2) (x:xs) | x ==1 = retrieve t2 xs
+                            | x ==0 = retrieve t1 xs
+
+retrieve (Lambda y t t2) (x:xs) | x == 2 = retrieve t2 xs
+retrieve _ _ = Nothing
+
 getReductions :: Exp -> [(Name, Exp)] -> [((Pos, Exp), [(Name, Exp)])]
 getReductions x env = [((p, e), r) | (p, e) <- getSubterms x, let r = allMatches e env, r /= [] ]
 
 getSubterms :: Exp -> [(Pos, Exp)]
 getSubterms x = runReader (subterms x) []
 
+isSubterm e e' = let a = [ b | (pos, b) <- getSubterms e', b /= e']
+                 in e `elem` a
 -- subterms of first order type
 subterms :: Exp -> Reader Pos [(Pos, Exp)]
 subterms (Var x) = do p <- ask

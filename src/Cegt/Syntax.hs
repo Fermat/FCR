@@ -131,7 +131,8 @@ flatten :: Exp -> [Exp]
 flatten (PApp f1 f2) = flatten f1 ++ [f2]
 flatten (App f1 f2) = flatten f1 ++ [f2]
 flatten a = [a]
-
+getHead a = head $ flatten a
+getArgs a = tail $ flatten a
 reApp (y:ys) = foldl (\ z x -> App z x) y ys
 flattenK :: Kind -> [Kind]
 flattenK (KArrow f1 f2) =  f1 : flattenK f2
