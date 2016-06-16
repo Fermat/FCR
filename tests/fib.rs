@@ -4,11 +4,11 @@ Kb : B x <= A x
 g : forall a b x .
       (forall p y . p (a y) => p (b y)) => 
       (forall p y . p (a (b y)) => p (a y)) => b x
-g b a = b (g a (\ b1 . a (b b1)))
+g b a = b (g (\ v . a v) (\ b1 . a (b b1)))
 
 
 h : B x 
-h = g Kb Ka
+h = g (\ v . Kb v) Ka
 
 {- This is an example of wrong order.
   with existential var, the guideline is always put 
