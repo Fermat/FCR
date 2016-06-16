@@ -2,6 +2,7 @@
 module Main where
 import IProver
 import Cegt.Parser
+import Cegt.Guardness
 import Cegt.Typecheck
 import Cegt.Typeinference
 import Cegt.Interaction
@@ -180,8 +181,20 @@ loadFile filename = do cnts <- lift (readFile filename)
                                                  do modify (\ s -> extendLms res s)
                                                     lift $ print (text ("passed the interactive proof checker"))
                                                     env' <- get
+                                                    let pds = pfdecls env'
+                                                        r = mapM (\ (x, y, z) -> checkG x z) pds
+                                                    case r of
+                                                      Left err ->
+                                                        lift $ print
+                                                        (disp err $$ text "fail to load file")
+                                                      Right _ -> do
+                                                        lift $ print
+                                                          (text "pass the guardness check")
+                                                        semiauto 
+
                                                     -- lift $ print (disp env')
-                                                    semiauto 
+
+                                                    
                                                     -- lift $ print (disp (lemmas env'))
                                          Left err ->
                                            lift $ print (text "error in the proof script:"
@@ -197,6 +210,12 @@ loadFile filename = do cnts <- lift (readFile filename)
                                  extendLms [] s = s
                                  extendLms ((n, (p, e)):xs) s = extendLms xs
                                                                   (extendLemma n p e s)
+
+
+
+checkG :: Name -> Exp -> Either Doc ()
+checkG n e = if guardness n e then return ()
+             else Left $ text "unguarded definition: " $$ (text n <+> text "=" $$ disp e)
 
 semiauto :: StateT Env IO ()
 semiauto = do

@@ -71,7 +71,7 @@ getSubterms x = runReader (subterms x) []
 
 isSubterm e e' = let a = [ b | (pos, b) <- getSubterms e', b /= e']
                  in e `elem` a
--- subterms of first order type
+
 subterms :: Exp -> Reader Pos [(Pos, Exp)]
 subterms (Var x) = do p <- ask
                       return [(p, Var x)]
@@ -82,6 +82,14 @@ subterms (PApp t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
                            l2 <- local (\r -> r++[1]) (subterms t2)
                            p <- ask
                            return ((p, (PApp t1 t2)):(l1++l2))
+
+subterms (App t1 t2) = do l1 <- local (\r -> r++[0]) (subterms t1)
+                          l2 <- local (\r -> r++[1]) (subterms t2)
+                          p <- ask
+                          return ((p, (App t1 t2)):(l1++l2))
+
+subterms a@(Lambda _ _ _) = do p <- ask
+                               return [(p, a)]
 
 data Trace = Trace [(Pos, Subst, Name, Exp)] deriving Show
 instance Disp Trace where
