@@ -6,8 +6,9 @@ import Cegt.Guardness
 import Cegt.Typecheck
 import Cegt.Typeinference
 import Cegt.Interaction
+import Cegt.Eval
 import Cegt.Loop
-import Cegt.Rewrite
+import Cegt.Rewrite hiding (steps)
 import Cegt.Monad
 import Cegt.Syntax
 import Cegt.PrettyPrinting
@@ -163,11 +164,13 @@ loadFile filename = do cnts <- lift (readFile filename)
                                            pfs = prfs a
                                            ks = constKinds bindings
                                            pdl = pfDecl a
+                                           sts = modsteps a
                                        modify (\ s -> extendMod (toFormula bindings) s)
                                        modify (\ s -> extendR bindings s)
                                        modify (\ s -> extendTacs pfs s)
                                        modify (\ s -> addKinds ks s)
                                        modify (\ s -> addDecls pdl s)
+                                       modify (\ s -> addSteps sts s)
 --                                       lift (print (show pfs))
                                        
                                        env <- get
@@ -190,7 +193,9 @@ loadFile filename = do cnts <- lift (readFile filename)
                                                       Right _ -> do
                                                         lift $ print
                                                           (text "pass the guardness check")
-                                                        semiauto 
+                                                        semiauto
+                                                        evaluation
+                                                        
 
                                                     -- lift $ print (disp env')
 
@@ -217,6 +222,15 @@ checkG :: Name -> Exp -> Either Doc ()
 checkG n e = if guardness n e then return ()
              else Left $ text "unguarded definition: " $$ (text n <+> text "=" $$ disp e)
 
+evaluation :: StateT Env IO ()
+evaluation = do
+  env <- get
+  let ss = steps env
+      res = mapM (\ (x, y) -> eval env y (Var x)) ss
+  case res of
+    Left err -> lift $ print err
+    Right r ->  lift $ print (text "steps results" $$ vcat (map disp r))
+      
 semiauto :: StateT Env IO ()
 semiauto = do
   env <- get

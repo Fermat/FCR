@@ -40,9 +40,11 @@ gModule :: Parser Module
 gModule = do
   bs <- many (try ruleDecl)
   ds <- many (try decl)
-  qs <- many (try proof)  
+  qs <- many (try proof)
+  sts <- many (try step)
   eof
-  return $ Mod bs qs ds
+  return $ Mod bs qs ds sts
+
 
 decl :: Parser (Name, Exp, Exp)
 decl = do
@@ -103,8 +105,14 @@ tacApplyH = do
   n <- identifier
   return $ ApplyH n 
   
+step :: Parser (Name, Int)
+step = do
+  reserved "step"
+  n <- identifier
+  num <- integer
+  return (n, fromIntegral num)
 
-
+    
 ruleDecl :: Parser (Name, Exp)
 ruleDecl = do
   (Const c) <- con 
@@ -205,7 +213,7 @@ gottlobStyle = Token.LanguageDef
                   [
                     "forall", "iota", "reduce", 
                     "coind","use", "intros", "apply", "applyh",
-                    "by", "from", "in", "let", "simpCmp", "invSimp",
+                    "by", "from", "in", "let", "simpCmp", "step",
                     "case", "of",
                     "data", "if", "then", "else",
                     "axiom", "proof", "qed", "lemma", "auto",

@@ -51,7 +51,8 @@ data Tactic = Apply Name [Exp]
                      
 data Module = Mod {decls :: [(Name, Exp)] ,
                    prfs :: [((Name, Exp), [Tactic])],
-                   pfDecl ::[(Name, Exp, Exp)]}
+                   pfDecl ::[(Name, Exp, Exp)],
+                   modsteps :: [(Name, Int)]}
             deriving (Show)
                      
 toFormula :: [(Name, Exp)] -> [(Name, Exp)]
@@ -130,6 +131,7 @@ freeKVar (KArrow f1 f2) = (freeKVar f1) `S.union` (freeKVar f2)
 flatten :: Exp -> [Exp]
 flatten (PApp f1 f2) = flatten f1 ++ [f2]
 flatten (App f1 f2) = flatten f1 ++ [f2]
+flatten (TApp f1 f2) = flatten f1 ++ [f2]
 flatten a = [a]
 getHead a = head $ flatten a
 getArgs a = tail $ flatten a
@@ -137,6 +139,9 @@ reApp (y:ys) = foldl (\ z x -> App z x) y ys
 flattenK :: Kind -> [Kind]
 flattenK (KArrow f1 f2) =  f1 : flattenK f2
 flattenK a = [a]
+
+flattenF (Imply f1 f2) =  f1 : flattenF f2
+flattenF a = [a]
 
 -- convert eigenvariable to variable 
 rebind :: Exp -> Exp
@@ -316,7 +321,7 @@ normalize :: Exp -> Exp
 -- normalize r | trace ("normalize " ++ show r) False = undefined
 normalize t = let t1 = norm t
                   t2 = norm t1
-              in if t1 `alphaEq` t2 then t1 else normalize t2
+              in if t1 == t2 then t1 else normalize t2 -- `alphaEq`
                                                  
 norm (Var a) = Var a
 norm (Const a) = Const a
