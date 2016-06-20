@@ -150,6 +150,7 @@ firstMatch  x ((k, Arrow l r):ys) =
          case match l x of
            Nothing -> firstMatch x ys
            Just s -> Just $ (k, applyE s r, s)
+firstMatch  x ((k, _):ys) = error "there are no rewrite rules specified"
 
 
 allMatches :: Exp -> [(Name, Exp)] -> [(Name, Exp)]
