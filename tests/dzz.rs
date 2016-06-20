@@ -8,6 +8,9 @@ g a1 a2 =  a2 (a1 (g (\ c . a1 c) (\ c1 . a2 (a1 c1))))
 e : D Z Z
 e = g A B 
 
+
+step 100 e
+
 {-
 l : forall a . a => a
 l x = x
