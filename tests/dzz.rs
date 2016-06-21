@@ -1,13 +1,13 @@
-A : forall x y .  D x (S y) => D (S x) y
-B : forall y . D (S y) Z => D Z y 
--- A : D (S x) y <= D x (S y)
--- B : D Z y <= D (S y) Z
+A : D (S x) y <= D x (S y)
+B : D Z y <= D (S y) Z
+-- A : forall x y .  D x (S y) => D (S x) y
+-- B : forall y . D (S y) Z => D Z y 
 
 -- B : forall p y . p (D (S y) Z) => p (D Z y)
 -- A : forall p x y . p (D x (S y)) => p (D (S x) y)
 
-comp : forall a b c . (b => c) => (a => b) => a => c
-comp f l x = f (l x)
+-- comp : forall a b c . (b => c) => (a => b) => a => c
+-- comp f l x = f (l x)
 
 g : forall d . 
      (forall x y . d x (S y) => d (S x) y) => 
@@ -17,7 +17,7 @@ g : forall d .
 -- g a1 a2 = a2 (a1 (g (\ v . a1 v) (\ v . a2 (a1 v))))
 g a1 a2 = a2 (a1 (g (\ v . a1 v) (\ v . a2 (a1 v))))
 e : D Z Z
-e = g A B
+e = g (\ v . A v) (\ v . B v)
 
 
 -- g : forall p d . (forall p x y . p (d x (S y)) => p (d (S x) y)) => 
