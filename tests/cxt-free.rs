@@ -38,6 +38,6 @@ f a1 a2 a3 a4 a5 a6 a7 a8 b  = b (a6 (a5 (a7 (a4 (a8 (f a1 (\ c1 . a2 (a1 (a3 c1
 h : (Al (Bl (Bl ( Cl (Dl (Dl (El y)))))))
 h = f K1 K2 K3 K4 K5 (\ c . K2 (K1 (K3 c))) K7 K8  K6
 
-step h 9
-step h 10
-step h 10000
+-- step h 9
+-- step h 10
+-- step h 10000

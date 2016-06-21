@@ -52,7 +52,7 @@ instance Disp Env where
     text "kinds" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) ks)) $$
     text "axioms" $$ (vcat  (map (\ (n, exp) -> disp n <+> text ":" <+> disp exp) as)) $$ 
     text "proof declarations" $$ (sep (map (\ (n, exp, pf) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) pfs)) $$
-    text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) lms))
+    text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ (nest 2 $ disp pf)) lms))
     $$ text "steps" $$ (vcat  (map (\ (n, num) -> text "step" <+> text n <+> int num) ss)) 
                          -- $$ text "textual lemma" $$
                          -- (vcat (map
