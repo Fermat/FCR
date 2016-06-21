@@ -161,12 +161,14 @@ loadFile filename = do cnts <- lift (readFile filename)
                          Left e ->
                            do lift $ print (disp e $$ text ("fail to load file "++filename))
                          Right a -> do let bindings = decls a
+                                           rs = getRules bindings
+                                           ax = getAxioms bindings  
                                            pfs = prfs a
                                            ks = constKinds bindings
                                            pdl = pfDecl a
                                            sts = modsteps a
-                                       modify (\ s -> extendMod (toFormula bindings) s)
-                                       modify (\ s -> extendR bindings s)
+                                       modify (\ s -> extendMod (toFormula rs ++ ax) s)
+                                       modify (\ s -> extendR rs s)
                                        modify (\ s -> extendTacs pfs s)
                                        modify (\ s -> addKinds ks s)
                                        modify (\ s -> addDecls pdl s)

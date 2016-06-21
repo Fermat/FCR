@@ -54,7 +54,14 @@ data Module = Mod {decls :: [(Name, Exp)] ,
                    pfDecl ::[(Name, Exp, Exp)],
                    modsteps :: [(Name, Int)]}
             deriving (Show)
-                     
+
+getRules ls = [(n, Arrow t1 t2) | (n, Arrow t1 t2) <- ls]
+getAxioms :: [(Name, Exp)] -> [(Name, Exp)]
+getAxioms ls = do
+  (n, t) <- ls
+  case t of
+    Arrow _ _ -> []
+    a -> return (n, a)
 toFormula :: [(Name, Exp)] -> [(Name, Exp)]
 toFormula env = map (\(n,e)-> (n, helper e)) env
    where helper a@(Arrow t t') =
