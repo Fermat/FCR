@@ -13,10 +13,10 @@ f : forall p l r y . (forall p x . p (l (A (B x))) => p (r (B x))) =>
 
 f a4 a2 a3 a1 a5 =
   a4 (a3 (a2 (a5 (a1 (a3 (a2 (a2 (f (\ c . a4 (a1 c)) 
-                                    a2 
+                                    (\ c . a2 c) 
                                     (\ c . a3 (a2 (a2 c))) 
-                                    a1 
+                                    (\ c . a1 c)
                                     (\ c . a5 (a1 c))))))))))
 
 h : B (R (B y))
-h = f K4 K2 K3 K1 K5
+h = f (\ c . K4 c) K2 K3 K1 K5

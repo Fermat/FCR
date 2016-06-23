@@ -16,12 +16,12 @@ f : forall p g n1 n2 s .
     p (g T T Z (s Z)))
 
 f a1 a2 b2 a3 b3 a4 a5 = 
-   a1 (a2 (b2 (a5 (a4 (f a1 (\ c . a3 (a2 c)) 
+   a1 (a2 (b2 (a5 (a4 (f (\ c . a1 c) (\ c . a3 (a2 c)) 
                          (\ c . (b3 (b2 c))) 
-                         a3 
+                         (\ c . a3 c) 
                          (\ c . b3 (b3 c))) 
                          a4 
                          (\ c . a5 (a5 c))))))
 
 h : G T T Z (S Z)
-h = f K1 K2 K2 K3 K3 K4 K5
+h = f (\ c . K1 c) K2 K2 K3 K3 K4 K5
