@@ -8,3 +8,5 @@ f a1 a2 = a2 (f (\ c . a1 c) (\ c . a2 (a1 c)))
 
 h : F Z (S Z) (S Z)
 h = f A (\ c . B c)
+
+step h 7
