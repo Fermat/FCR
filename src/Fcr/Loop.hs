@@ -1,6 +1,6 @@
-module Cegt.Loop where
-import Cegt.Syntax
-import Cegt.Rewrite
+module Fcr.Loop where
+import Fcr.Syntax
+import Fcr.Rewrite
 import Data.List
 
 constrLoop :: Trace -> [(Name, Exp)]

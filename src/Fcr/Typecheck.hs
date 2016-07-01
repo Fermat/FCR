@@ -1,9 +1,9 @@
-module Cegt.Typecheck where
+module Fcr.Typecheck where
 
-import Cegt.Syntax
-import Cegt.Monad
+import Fcr.Syntax
+import Fcr.Monad
 
-import Cegt.PrettyPrinting
+import Fcr.PrettyPrinting
 
 import Text.PrettyPrint
 import Control.Monad.State.Lazy

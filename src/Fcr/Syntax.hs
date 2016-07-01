@@ -1,4 +1,4 @@
-module Cegt.Syntax where
+module Fcr.Syntax where
 
 import Control.Monad.State.Lazy
 import Control.Monad.Reader

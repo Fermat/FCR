@@ -1,15 +1,15 @@
 module IProver where
 
-import Cegt.Syntax
-import Cegt.PrettyPrinting
+import Fcr.Syntax
+import Fcr.PrettyPrinting
 import Control.Monad.State.Strict
-import Cegt.Monad
-import Cegt.Syntax
+import Fcr.Monad
+import Fcr.Syntax
 import Data.List
-import Cegt.Parser
-import Cegt.Rewrite
-import Cegt.Interaction
-import Cegt.Typecheck
+import Fcr.Parser
+import Fcr.Rewrite
+import Fcr.Interaction
+import Fcr.Typecheck
 
 import Text.PrettyPrint
 import System.Console.Haskeline

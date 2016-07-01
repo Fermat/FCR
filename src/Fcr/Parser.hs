@@ -1,7 +1,7 @@
 {-#LANGUAGE PackageImports, StandaloneDeriving, DeriveDataTypeable, FlexibleContexts#-}
-module Cegt.Parser where
-import Cegt.Syntax
-import Cegt.PrettyPrinting
+module Fcr.Parser where
+import Fcr.Syntax
+import Fcr.PrettyPrinting
 
 import Text.Parsec hiding (ParseError,Empty, State)
 import qualified Text.Parsec as P

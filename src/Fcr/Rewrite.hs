@@ -1,6 +1,6 @@
-module Cegt.Rewrite where
-import Cegt.PrettyPrinting
-import Cegt.Syntax
+module Fcr.Rewrite where
+import Fcr.PrettyPrinting
+import Fcr.Syntax
 import Control.Monad
 import Data.List
 import Data.Tree

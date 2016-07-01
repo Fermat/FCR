@@ -1,9 +1,9 @@
-module Cegt.Interaction where
-import Cegt.Syntax
-import Cegt.Monad
-import Cegt.PrettyPrinting
-import Cegt.Typecheck
-import Cegt.Rewrite
+module Fcr.Interaction where
+import Fcr.Syntax
+import Fcr.Monad
+import Fcr.PrettyPrinting
+import Fcr.Typecheck
+import Fcr.Rewrite
 import Data.List
 import Data.Char
 

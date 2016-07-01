@@ -1,17 +1,17 @@
 {-# LANGUAGE  ScopedTypeVariables, PatternGuards, StandaloneDeriving, DeriveDataTypeable #-}
 module Main where
 import IProver
-import Cegt.Parser
-import Cegt.Guardness
-import Cegt.Typecheck
-import Cegt.Typeinference
-import Cegt.Interaction
-import Cegt.Eval
-import Cegt.Loop
-import Cegt.Rewrite hiding (steps)
-import Cegt.Monad
-import Cegt.Syntax
-import Cegt.PrettyPrinting
+import Fcr.Parser
+import Fcr.Guardness
+import Fcr.Typecheck
+import Fcr.Typeinference
+import Fcr.Interaction
+import Fcr.Eval
+import Fcr.Loop
+import Fcr.Rewrite hiding (steps)
+import Fcr.Monad
+import Fcr.Syntax
+import Fcr.PrettyPrinting
 
 import Control.Monad.Except hiding (join)
 import Text.PrettyPrint hiding (semi)
@@ -33,7 +33,7 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
   where
     loop :: InputT (StateT Env IO) ()
     loop = do
-      minput <- getInputLine "cegt> "
+      minput <- getInputLine "fcr> "
       case minput of
         Nothing -> return ()
         Just ":q" -> return ()

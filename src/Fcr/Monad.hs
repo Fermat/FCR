@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns, DeriveDataTypeable, ParallelListComp, GeneralizedNewtypeDeriving, FlexibleInstances, FlexibleContexts  #-}
-module Cegt.Monad where
-import Cegt.Syntax
-import Cegt.PrettyPrinting
+module Fcr.Monad where
+import Fcr.Syntax
+import Fcr.PrettyPrinting
 
 import Text.PrettyPrint
 import Data.Typeable

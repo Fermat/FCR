@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeSynonymInstances, FlexibleInstances #-}
-module Cegt.PrettyPrinting where
-import Cegt.Syntax
+module Fcr.PrettyPrinting where
+import Fcr.Syntax
 -- import Cegt.Rewrite
 import Text.PrettyPrint
 import Text.Parsec.Pos

@@ -1,12 +1,12 @@
-module Cegt.Typeinference where
+module Fcr.Typeinference where
 
-import Cegt.Syntax
-import Cegt.Interaction
-import Cegt.Monad
-import Cegt.Rewrite hiding (merge')
+import Fcr.Syntax
+import Fcr.Interaction
+import Fcr.Monad
+import Fcr.Rewrite hiding (merge')
 
-import Cegt.PrettyPrinting
-import Cegt.Typecheck
+import Fcr.PrettyPrinting
+import Fcr.Typecheck
 import Control.Monad.State
 import Text.PrettyPrint
 import Data.List

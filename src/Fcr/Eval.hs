@@ -1,8 +1,8 @@
-module Cegt.Eval where
-import Cegt.Syntax
-import Cegt.Monad
-import Cegt.PrettyPrinting
-import Cegt.Rewrite
+module Fcr.Eval where
+import Fcr.Syntax
+import Fcr.Monad
+import Fcr.PrettyPrinting
+import Fcr.Rewrite
 
 import Data.List
 import Data.Char
