@@ -14,9 +14,11 @@ The fcr environment support the following commands.
 
 1. :l <filename>
 
-e.g. :l test1.rs
+e.g. :l examples/test1.rs
 This will check and load a given file(for the format of the file please see the example). 
 The checkings in this case are: guardness check, type check and proof check.
+
+The following commands assume a given file containing rewrite rules is loaded without errors.
 
 2. :env 
 This will print out the current environment information
@@ -39,9 +41,9 @@ e.g. :full 10 (F x)
 This will display the tree of rewriting the term (F x), the depth 
 of the tree is 10.
 
-* Example
+* Examples
 ---------
-See directory example/
+See directory examples/
 
 
 
