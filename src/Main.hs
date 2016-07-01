@@ -1,5 +1,5 @@
 {-# LANGUAGE  ScopedTypeVariables, PatternGuards, StandaloneDeriving, DeriveDataTypeable #-}
-module Fcr where
+module Main where
 import IProver
 import Fcr.Parser
 import Fcr.Guardness
