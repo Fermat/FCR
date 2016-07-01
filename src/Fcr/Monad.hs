@@ -54,11 +54,6 @@ instance Disp Env where
     text "proof declarations" $$ (sep (map (\ (n, exp, pf) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ disp pf) pfs)) $$
     text "lemmas" $$ (vcat (map (\ (n, (pf, exp)) -> (disp n <+> text ":" <+> disp exp <+> text "=") $$ (nest 2 $ disp pf)) lms))
     $$ text "steps" $$ (vcat  (map (\ (n, num) -> text "step" <+> text n <+> int num) ss)) 
-                         -- $$ text "textual lemma" $$
-                         -- (vcat (map
-                         --        (\ ((n, exp),pfs) ->
-                         --          (disp n <+> text ":" <+> disp exp) $$ (vcat (map disp pfs)))
-                         --        ts))
                       
 
 emptyEnv :: Env
