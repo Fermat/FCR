@@ -16,7 +16,7 @@ import Fcr.PrettyPrinting
 import Control.Monad.Except hiding (join)
 import Text.PrettyPrint hiding (semi)
 import Text.Parsec(ParseError)
-import System.Console.CmdArgs
+--import System.Console.CmdArgs
 import Data.Typeable
 import Data.List
 import Data.Tree hiding (flatten)
