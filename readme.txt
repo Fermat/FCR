@@ -15,7 +15,8 @@ The fcr environment support the following commands.
 1. :l <filename>
 
 e.g. :l examples/inner2.rs
-This will check and load a given file(for the format of the file please see the example). 
+This will check and load a given file (please consult the files in examples/ 
+for the format and grammar). 
 The checkings in this case are: guardness check, type check and proof check.
 
 The following commands assume a file containing rewrite rules is loaded without errors,
