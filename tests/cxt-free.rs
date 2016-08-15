@@ -40,4 +40,4 @@ h = f K1 K2 K3 K4 K5 (\ c . K2 (K1 (K3 c))) K7 K8  K6
 
 -- step h 9
 -- step h 10
--- step h 10000
+step h 10000
