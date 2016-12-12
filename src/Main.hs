@@ -1,8 +1,6 @@
-{-# LANGUAGE  ScopedTypeVariables, PatternGuards, StandaloneDeriving, DeriveDataTypeable #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Main where
-import IProver
 import Fcr.Parser
-import Fcr.Guardness
 import Fcr.Typecheck
 import Fcr.Typeinference
 import Fcr.Interaction
@@ -16,7 +14,6 @@ import Fcr.PrettyPrinting
 import Control.Monad.Except hiding (join)
 import Text.PrettyPrint hiding (semi)
 import Text.Parsec(ParseError)
---import System.Console.CmdArgs
 import Data.Typeable
 import Data.List
 import Data.Tree hiding (flatten)
@@ -33,126 +30,47 @@ main = evalStateT (runInputT defaultSettings loop) emptyEnv
   where
     loop :: InputT (StateT Env IO) ()
     loop = do
-      minput <- getInputLine "fcr> "
-      case minput of
+      input <- getInputLine "fcr> "
+      case input of
         Nothing -> return ()
         Just ":q" -> return ()
-        Just ":env" -> do
-          env <- lift get
-          outputStrLn $ show (text "the current environment" $$ disp env)
---          outputStrLn $ show (rules env)
+        Just others -> do
+          let ws = words others
+          dispatch ws
           loop
-        Just ":iprover" -> do
-          env <- lift get
-          let gamma = axioms env ++ map (\ (x,(_,y))-> (x,y)) (lemmas env)
-              ks = kinds env
-          result <- lift $ lift $ evalStateT (runInputT defaultSettings prover)
-                    (Var "dummy", [], ("dummy", Var "dummy", [([],Var "dummy" ,gamma)], Nothing, 0), ks)
-          case result of
-            Nothing -> loop
-            Just (n, p, f) -> 
-              case runProofCheck n p f env of
-                Left err ->
-                  outputStrLn (show (disp err)) >> loop
-                Right _ -> lift (modify (extendLemma n p f)) >> loop
-        Just input | Just rest <- stripPrefix ":outer " input ->
-            do let l = words rest
-               case l of
-                n:xs -> 
-                  case parseExp (unwords xs) of
-                    Left err -> do
-                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ (unwords xs))))
-                      loop
-                    Right e -> 
-                          do state <- lift get
-                             let num = read n :: Int
-                                 res = getTrace (rules state) e num
-                             outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
-                             loop
-                _ -> do outputStrLn $ "not enough argument for :outer \n"
-                        loop
-        Just input | Just rest <- stripPrefix ":inner " input ->
-            do let l = words rest
-               case l of
-                n:xs -> 
-                  case parseExp (unwords xs) of
-                    Left err -> do
-                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ (unwords xs))))
-                      loop
-                    Right e -> 
-                          do state <- lift get
-                             let num = read n :: Int
-                                 res = getTrace' (rules state) e num
-                             outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
-                             loop
-                _ -> do outputStrLn $ "not enough argument for :inner \n"
-                        loop
-        Just input | Just rest <- stripPrefix ":full " input ->
-            do let l = words rest
-               case l of
-                n:xs -> 
-                  case parseExp (unwords xs) of
-                    Left err -> do
-                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ (unwords xs))))
-                      loop
-                    Right e -> 
-                          do state <- lift get
-                             let num = read n :: Int
-                                 redTree = reduce (rules state) ([], "_", e) num
-                                 pTree = dispTree redTree
-                             outputStrLn $ "the execution tree is:\n " ++ (drawTree pTree)
-                             loop
-                _ -> do outputStrLn $ "not enough argument for :inner "
-                        loop
-        Just input | Just rest <- stripPrefix ":partial " input ->
-            do let l = words rest
-               case l of
-                n:xs -> 
-                  case parseExp (unwords xs) of
-                    Left err -> do
-                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ (unwords xs))))
-                      loop
-                    Right e -> 
-                          do state <- lift get
-                             let num = read n :: Int
-                                 res = getTrace' (rules state) e num
-                                 pf = partial res
-                             outputStrLn $ show (text "the execution trace is:" $$ disp res)
-                             outputStrLn $ show (text "the partial proof is:" $$ disp pf)
-                             loop
-                _ -> do outputStrLn $ "not enough argument for :partial\n"
-                        loop
-        Just input | Just rest <- stripPrefix ":loop " input ->
-            do let l = words rest
-               case l of
-                n:xs -> 
-                  case parseExp (unwords xs) of
-                    Left err -> do
-                      outputStrLn (show (disp err $$ text ("fail to parse expression "++ (unwords xs))))
-                      loop
-                    Right e -> 
-                          do state <- lift get
-                             let num = read n :: Int
-                                 res = getTrace' (rules state) e num
-                                 pf = constrLoop res
-                             outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
-                             case pf of
-                               [] -> do outputStrLn $ "fail to construct proof.\n "
-                                        loop
-                               (n1,e1):(n2,e2):[] -> do
-                                 outputStrLn $ show (text "the proof is" $$ (text n1 <+> text "=" <+>disp e1 $$ (text n2 <+> text "=" <+>disp e2)))
-                                 
-                                 loop
-                _ -> do outputStrLn $ "not enough argument for :loop "
-                        loop
-                   | Just rest <- stripPrefix ":l " input ->
-              do let filename:[] = words rest
-                 lift (put emptyEnv)
-                 lift (loadFile filename)
-                 loop
-                   | otherwise -> do outputStrLn $ "Unrecognize input : " ++ input
-                                     loop
 
+dispatch :: [String] -> InputT (StateT Env IO) ()
+dispatch [":env"] = do env <- lift get
+                       outputStrLn $ show (text "the current environment" $$ disp env)
+
+dispatch [":outer",n,exp] =
+  let num = read n :: Int in
+    case parseExp exp of
+      Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ exp)))
+      Right e -> do env <- lift get
+                    let res = getTrace (rules env) e num
+                    outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
+
+dispatch [":inner", n, exp] =
+  let num = read n :: Int in
+    case parseExp exp of
+      Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ exp)))
+      Right e -> do env <- lift get
+                    let res = getTrace' (rules env) e num
+                    outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
+
+dispatch [":full", n, exp] =
+  let num = read n :: Int in
+    case parseExp exp of
+      Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ exp)))
+      Right e -> do env <- lift get
+                    let redTree = reduce (rules env) ([], "_", e) num
+                        pTree = dispTree redTree
+                    outputStrLn $ "the execution tree is:\n " ++ (drawTree pTree)
+
+dispatch [":l", filename] = lift (put emptyEnv) >> lift (loadFile filename)
+               
+dispatch xs = outputStrLn $ "Unrecognize input : " ++ unwords xs                  
 
 
 loadFile :: FilePath -> StateT Env IO ()
@@ -186,17 +104,8 @@ loadFile filename = do cnts <- lift (readFile filename)
                                                  do modify (\ s -> extendLms res s)
                                                     lift $ print (text ("passed the interactive proof checker"))
                                                     env' <- get
-                                                    let pds = pfdecls env'
-                                                        r = mapM (\ (x, y, z) -> checkG x z) pds
-                                                    case r of
-                                                      Left err ->
-                                                        lift $ print
-                                                        (disp err $$ text "fail to load file")
-                                                      Right _ -> do
-                                                        lift $ print
-                                                          (text "pass the guardness check")
-                                                        semiauto
-                                                        evaluation
+                                                    semiauto
+                                                    evaluation
                                                         
 
                                                     -- lift $ print (disp env')
@@ -220,10 +129,6 @@ loadFile filename = do cnts <- lift (readFile filename)
 
 
 
-checkG :: Name -> Exp -> Either Doc ()
-checkG n e = if guardness n e then return ()
-             else Left $ text "unguarded definition: " $$ (text n <+> text "=" $$ disp e)
-
 evaluation :: StateT Env IO ()
 evaluation = do
   env <- get
@@ -237,7 +142,7 @@ semiauto :: StateT Env IO ()
 semiauto = do
   env <- get
   let pds = pfdecls env
-      res = foldM (\ x y -> semi x y) env pds
+      res = foldM semi env pds
   case res of
     Left err -> 
       lift $ print (disp err)

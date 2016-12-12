@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 module Fcr.Typecheck where
 
 import Fcr.Syntax
