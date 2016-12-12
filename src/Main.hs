@@ -74,61 +74,48 @@ dispatch xs = outputStrLn $ "Unrecognize input : " ++ unwords xs
 
 
 loadFile :: FilePath -> StateT Env IO ()
-loadFile filename = do cnts <- lift (readFile filename)
-                       case parseModule filename cnts of
-                         Left e ->
-                           do lift $ print (disp e $$ text ("fail to load file "++filename))
-                         Right a -> do let bindings = decls a
-                                           rs = getRules bindings
-                                           ax = getAxioms bindings  
-                                           pfs = prfs a
-                                           ks = constKinds bindings
-                                           pdl = pfDecl a
-                                           sts = modsteps a
-                                       modify (\ s -> extendMod (toFormula rs ++ ax) s)
-                                       modify (\ s -> extendR rs s)
-                                       modify (\ s -> extendTacs pfs s)
-                                       modify (\ s -> addKinds ks s)
-                                       modify (\ s -> addDecls pdl s)
-                                       modify (\ s -> addSteps sts s)
---                                       lift (print (show pfs))
-                                       
-                                       env <- get
-                                       
-                                       case interpret env pfs of
-                                         Right res -> do
-                                           let res' = mapM (\ (n, (p, exp)) -> runProofCheck n p exp env) res
-                                           case res' of
-                                             Left err -> lift $ print (disp err $$ text ("fail to load file "++filename))
-                                             Right _ -> 
-                                                 do modify (\ s -> extendLms res s)
-                                                    lift $ print (text ("passed the interactive proof checker"))
-                                                    env' <- get
-                                                    semiauto
-                                                    evaluation
-                                                        
+loadFile filename =
+  do cnts <- lift (readFile filename)
+     case parseModule filename cnts of
+       Left e -> lift $ print (disp e $$ text ("fail to load file "++filename))
+       Right a ->
+         do let bindings = decls a
+                rs = getRules bindings
+                ax = getAxioms bindings  
+                pfs = prfs a
+                ks = constKinds bindings
+                pdl = pfDecl a
+                sts = modsteps a
+            modify (extendMod (toFormula rs ++ ax))
+            modify (extendR rs)
+            modify (extendTacs pfs)
+            modify (addKinds ks)
+            modify (addDecls pdl)
+            modify (addSteps sts)
+            env <- get
+            case interpret env pfs of
+              Right res -> 
+                let res' = mapM (\ (n, (p, exp)) -> runProofCheck n p exp env) res in
+                  case res' of
+                    Left err ->
+                      lift $ print (disp err $$ text ("fail to load file "++filename))
+                    Right _ -> 
+                      do modify (\ s -> extendLms res s)
+                         lift $ print (text ("passed the interactive proof checker"))
+                         env' <- get
+                         semiauto
+                         evaluation
+              Left err -> lift $ print (text "error in the proof script:" $$ disp err)
 
-                                                    -- lift $ print (disp env')
-
-                                                    
-                                                    -- lift $ print (disp (lemmas env'))
-                                         Left err ->
-                                           lift $ print (text "error in the proof script:"
-                                                         $$ disp err)
-                                       
-                           where extendMod [] s = s
-                                 extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
-                                 extendR [] s = s
-                                 extendR ((n, e):xs) s = extendR xs (extendRule n e s)
-                                 extendTacs [] s = s
-                                 extendTacs (((n, e), ts):xs) s = extendTacs xs
-                                                                  (extendTac n e ts s)
-                                 extendLms [] s = s
-                                 extendLms ((n, (p, e)):xs) s = extendLms xs
-                                                                  (extendLemma n p e s)
-
-
-
+                where extendMod [] s = s
+                      extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
+                      extendR [] s = s
+                      extendR ((n, e):xs) s = extendR xs (extendRule n e s)
+                      extendTacs [] s = s
+                      extendTacs (((n, e), ts):xs) s = extendTacs xs (extendTac n e ts s)
+                      extendLms [] s = s
+                      extendLms ((n, (p, e)):xs) s = extendLms xs (extendLemma n p e s)
+                                                                  
 evaluation :: StateT Env IO ()
 evaluation = do
   env <- get
