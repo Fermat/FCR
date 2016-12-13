@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 import Fcr.Parser
 import Fcr.Typecheck
@@ -85,9 +84,13 @@ loadFile filename =
                 sts = modsteps a
                 env = Env{axioms = toFormula rs ++ ax, lemmas = [], rules = rs, tacs = [],
                           kinds = ks, pfdecls = pdl, steps = sts} 
-            put env
-            semiauto
-            evaluation
+            let res = foldM semi env pdl
+            case res of
+              Left err -> lift $ print (disp err)
+              Right env' -> do put env'
+                               lift $ print (disp env')
+                               lift $ print (text "automated proof reconstruction success!")
+                               evaluation
             
 
                               
@@ -100,19 +103,6 @@ evaluation = do
     Left err -> lift $ print err
     Right r ->  lift $ print (text "steps results" $$ vcat (map disp r))
       
-semiauto :: StateT Env IO ()
-semiauto = do
-  env <- get
-  let pds = pfdecls env
-      res = foldM semi env pds
-  case res of
-    Left err -> 
-      lift $ print (disp err)
-    Right env' -> do put env'
-                     lift $ print (disp env')
-                     lift $ print (text "automated proof reconstruction success!")
-                     
-    
 semi :: Env -> (Name, Exp, Exp) -> Either Doc Env
 semi env (n, f, pf) = 
     let ks = kinds env
@@ -120,13 +110,8 @@ semi env (n, f, pf) =
         as = axioms env
         pEnv = as ++ lms
         init = [(n, f, [([], f, (n, f):pEnv)], Nothing,0)] in
-    case constrProof n init ks pf of    
-      Right e -> 
-        let e' = rebind e
-            res' = runProofCheck n e' f env in
-        case res' of
-                 Left err -> Left (disp err $$ text "fail to load file ")
-                 Right _ ->             
-                   Right $ extendLemma n e' f env
-      Left err -> Left err
+    do e <- constrProof n init ks pf
+       let e' = rebind e
+       runProofCheck n e' f env
+       return $ extendLemma n e' f env
 
