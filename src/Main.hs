@@ -3,9 +3,7 @@ module Main where
 import Fcr.Parser
 import Fcr.Typecheck
 import Fcr.Typeinference
-import Fcr.Interaction
 import Fcr.Eval
-import Fcr.Loop
 import Fcr.Rewrite hiding (steps)
 import Fcr.Monad
 import Fcr.Syntax
@@ -72,6 +70,8 @@ dispatch [":l", filename] = lift (put emptyEnv) >> lift (loadFile filename)
                
 dispatch xs = outputStrLn $ "Unrecognize input : " ++ unwords xs                  
 
+-- makeEnv :: Module -> Env
+-- makeEnv a = 
 
 loadFile :: FilePath -> StateT Env IO ()
 loadFile filename =
@@ -92,30 +92,19 @@ loadFile filename =
             modify (addKinds ks)
             modify (addDecls pdl)
             modify (addSteps sts)
-            env <- get
-            case interpret env pfs of
-              Right res -> 
-                let res' = mapM (\ (n, (p, exp)) -> runProofCheck n p exp env) res in
-                  case res' of
-                    Left err ->
-                      lift $ print (disp err $$ text ("fail to load file "++filename))
-                    Right _ -> 
-                      do modify (\ s -> extendLms res s)
-                         lift $ print (text ("passed the interactive proof checker"))
-                         env' <- get
-                         semiauto
-                         evaluation
-              Left err -> lift $ print (text "error in the proof script:" $$ disp err)
+            semiauto
+            evaluation
+            
 
-                where extendMod [] s = s
-                      extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
-                      extendR [] s = s
-                      extendR ((n, e):xs) s = extendR xs (extendRule n e s)
-                      extendTacs [] s = s
-                      extendTacs (((n, e), ts):xs) s = extendTacs xs (extendTac n e ts s)
-                      extendLms [] s = s
-                      extendLms ((n, (p, e)):xs) s = extendLms xs (extendLemma n p e s)
-                                                                  
+       where extendMod [] s = s
+             extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
+             extendR [] s = s
+             extendR ((n, e):xs) s = extendR xs (extendRule n e s)
+             extendTacs [] s = s
+             extendTacs (((n, e), ts):xs) s = extendTacs xs (extendTac n e ts s)
+             extendLms [] s = s
+             extendLms ((n, (p, e)):xs) s = extendLms xs (extendLemma n p e s)
+                              
 evaluation :: StateT Env IO ()
 evaluation = do
   env <- get

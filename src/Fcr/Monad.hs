@@ -80,3 +80,6 @@ addSteps ks e@(Env {steps}) = e{steps = ks}
 
 addDecls :: [(Name, Exp, Exp)] -> Env -> Env
 addDecls ks e@(Env {pfdecls}) = e{pfdecls = ks}
+
+extendEnv :: Env 
+extendEnv = undefined
