@@ -47,7 +47,7 @@ dispatch [":outer",n,exp] =
       Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ exp)))
       Right e -> do env <- lift get
                     let res = getTrace (rules env) e num
-                    outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
+                    outputStrLn $ "the execution trace is:\n " ++ show (disp res)
 
 dispatch [":inner", n, exp] =
   let num = read n :: Int in
@@ -55,7 +55,7 @@ dispatch [":inner", n, exp] =
       Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ exp)))
       Right e -> do env <- lift get
                     let res = getTrace' (rules env) e num
-                    outputStrLn $ "the execution trace is:\n " ++ (show $ disp res)
+                    outputStrLn $ "the execution trace is:\n " ++ show (disp res)
 
 dispatch [":full", n, exp] =
   let num = read n :: Int in
@@ -64,14 +64,12 @@ dispatch [":full", n, exp] =
       Right e -> do env <- lift get
                     let redTree = reduce (rules env) ([], "_", e) num
                         pTree = dispTree redTree
-                    outputStrLn $ "the execution tree is:\n " ++ (drawTree pTree)
+                    outputStrLn $ "the execution tree is:\n " ++ drawTree pTree
 
 dispatch [":l", filename] = lift (put emptyEnv) >> lift (loadFile filename)
                
 dispatch xs = outputStrLn $ "Unrecognize input : " ++ unwords xs                  
 
--- makeEnv :: Module -> Env
--- makeEnv a = 
 
 loadFile :: FilePath -> StateT Env IO ()
 loadFile filename =
@@ -82,28 +80,16 @@ loadFile filename =
          do let bindings = decls a
                 rs = getRules bindings
                 ax = getAxioms bindings  
-                pfs = prfs a
                 ks = constKinds bindings
                 pdl = pfDecl a
                 sts = modsteps a
-            modify (extendMod (toFormula rs ++ ax))
-            modify (extendR rs)
-            modify (extendTacs pfs)
-            modify (addKinds ks)
-            modify (addDecls pdl)
-            modify (addSteps sts)
+                env = Env{axioms = toFormula rs ++ ax, lemmas = [], rules = rs, tacs = [],
+                          kinds = ks, pfdecls = pdl, steps = sts} 
+            put env
             semiauto
             evaluation
             
 
-       where extendMod [] s = s
-             extendMod ((n, e):xs) s = extendMod xs (extendAxiom n e s)
-             extendR [] s = s
-             extendR ((n, e):xs) s = extendR xs (extendRule n e s)
-             extendTacs [] s = s
-             extendTacs (((n, e), ts):xs) s = extendTacs xs (extendTac n e ts s)
-             extendLms [] s = s
-             extendLms ((n, (p, e)):xs) s = extendLms xs (extendLemma n p e s)
                               
 evaluation :: StateT Env IO ()
 evaluation = do
@@ -139,7 +125,7 @@ semi env (n, f, pf) =
         let e' = rebind e
             res' = runProofCheck n e' f env in
         case res' of
-                 Left err -> Left (disp err $$ text ("fail to load file "))
+                 Left err -> Left (disp err $$ text "fail to load file ")
                  Right _ ->             
                    Right $ extendLemma n e' f env
       Left err -> Left err
