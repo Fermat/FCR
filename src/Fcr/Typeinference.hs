@@ -1,11 +1,11 @@
 module Fcr.Typeinference where
 
 import Fcr.Syntax
--- import Fcr.Interaction
 import Fcr.Monad
 import Fcr.Rewrite hiding (merge')
 import Fcr.PrettyPrinting
 import Fcr.Typecheck
+
 import Control.Monad.State
 import Text.PrettyPrint
 import Data.List

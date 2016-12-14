@@ -13,9 +13,11 @@ import Data.Char
 import qualified Data.Set as S
 import Data.List hiding (partition)
 
+type KSubst = [(Name, Kind)]
+
+-- KSubst under ReaderT is the global kinding information
 type KCMonad a = StateT Int (StateT KSubst (ReaderT KSubst (Either Doc))) a  
 
-type KSubst = [(Name, Kind)]
 
 kindList :: [Exp] -> KSubst -> Either Doc [Kind]
 kindList ts g = mapM (\ x -> runKinding x g) ts
@@ -37,21 +39,23 @@ ground Star = Star
 ground Formula = Formula
 
 inferKind :: Exp -> KCMonad Kind
-inferKind (Const x) | isUpper (head x) = do
-  genv <- ask
-  case lookup x genv of
-    Just k -> return k
-    Nothing -> lift $ lift $ lift $ Left $ text "Kinding error: " <+> text "undefine type constructor:" <+> disp x
+inferKind (Const x) | isUpper (head x) =
+                      do genv <- ask
+                         case lookup x genv of
+                           Just k -> return k
+                           Nothing ->
+                             lift $ lift $ lift $ Left $
+                             text "Kinding error: " <+>
+                             text "undefine type constructor:" <+> disp x
 
-                    | otherwise  = do
-  env <- lift get
-  case lookup x env of
-    Nothing -> do
-      ki <- makeName "k"
-      let kind = KVar ki
-      lift $ modify (\ e -> (x, kind): e)
-      return kind
-    Just k -> return k  
+inferKind (Const x) = 
+  do env <- lift get
+     case lookup x env of
+       Nothing -> do ki <- makeName "k"
+                     let kind = KVar ki
+                     lift $ modify (\ e -> (x, kind): e)
+                     return kind
+       Just k -> return k  
   
 inferKind (Var x) = do
   env <- lift get
@@ -73,16 +77,13 @@ inferKind (PApp f1 f2) = do
 
 inferKind (Abs x t) = do
   lift $ modify (\ e -> (x, Star): e)
-  let vars = free t
-      l = intersect vars [x]
-  case l of
-    a:b:_ -> lift $ lift $ lift $ Left $ text "multiple use of variable " <+> text x 
-    a:[] -> do k <- inferKind t
-               let k' = ground k
-               case isTerm k' of
-                 True -> return $ KArrow Star k
-                 False -> lift $ lift $ lift $ Left $ text "the body " <+> (disp t) <+> text " is ill-kind"
-    [] -> lift $ lift $ lift $ Left $ text "no use of variable " <+> text x
+  if x `elem` (free t) then
+    do k <- inferKind t
+       let k' = ground k
+       case isTerm k' of
+         True -> return $ KArrow Star k
+         False -> lift $ lift $ lift $ Left $ text "the body " <+> (disp t) <+> text " is ill-kind"
+    else lift $ lift $ lift $ Left $ text "no use of variable " <+> text x
       
 inferKind (Imply f1 f2) = do
   k1 <- inferKind f1
@@ -430,6 +431,7 @@ boundVars :: [Name] -> Exp -> [Name]
 boundVars vs (Const x) = []
 boundVars vs (Var x) = if x `elem` vs then [x] else []
 boundVars vs (PApp t1 t2) = boundVars vs t1 ++ boundVars vs t2
+
 varOrd :: [Name] -> Exp -> Bool
 varOrd vs t = vs == boundVars vs t
 
