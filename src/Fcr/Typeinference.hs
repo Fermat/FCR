@@ -11,14 +11,20 @@ import Text.PrettyPrint
 import Data.List
 import Data.Char
 import Debug.Trace
-
+import qualified Data.Set as S
+-- [(Var|Const : Types)]
 type PfEnv = [(Name, Exp)]
-type ProofState = (Name, Exp, [(Pos, Exp, PfEnv)], Maybe Doc, Int)
+
+-- (global name for the proof, Mixed proof and goals,
+-- [(position, current goal, Environment, list of type var)],
+-- Error message, counter for generating new variable during the resolution)
+type ProofState = (Name, Exp, [(Pos, Exp, PfEnv, [Name])], Maybe Doc, Int)
 
 intros :: ProofState -> [Name] -> ProofState
 intros (gn, pf, [], m, i) ns =
   let err = Just $ text "no more subgoals" in (gn, pf, [], err, i)
-intros (gn, pf, (pos, goal, gamma):res, Nothing, i) ns =
+
+intros (gn, pf, (pos, goal, gamma, vs):res, Nothing, i) ns =
   let (vars, head, body) = separate goal
       lb = length body
       lv = length vars
@@ -33,9 +39,9 @@ intros (gn, pf, (pos, goal, gamma):res, Nothing, i) ns =
       newAbs = foldr (\ a b -> Lambda a Nothing b) newLam absNames
       pf' = replace pf pos newAbs
       pos' = pos ++ take num stream2
-  in (gn, pf', (pos',head', gamma++newEnv):res, Nothing, i+lv)
+  in (gn, pf', (pos',head', gamma++newEnv, vs++absNames):res, Nothing, i+lv)
 
-intros (gn, pf, (pos, goal, gamma):res, m, i) ns = (gn, pf, (pos, goal, gamma):res, m, i)
+intros (gn, pf, (pos, goal, gamma, vs):res, m, i) ns = (gn, pf, (pos, goal, gamma, vs):res, m, i)
 
 -- smart higher order apply, if it fails, it returns a singleton list with
 -- error mark as Just otherwise it succeeds with multiple proof states
@@ -44,53 +50,55 @@ applyH :: KSubst -> ProofState -> Name -> [ProofState]
 applyH ks (gn, pf, [], m, i) k =
     let m' = Just $ text "no more subgoals" in [(gn, pf, [], m', i)]
 
-applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k = 
+applyH ks (gn, pf, curState@((pos, goal, gamma, vs):res), Nothing, i) k = 
   case lookup k gamma of
     Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
-      [(gn, pf, (pos, goal, gamma):res, m', i)]
+      [(gn, pf, (pos, goal, gamma, vs):res, m', i)]
     Just f ->
       if f `alphaEq` goal then
         let name = case k of
               n:_ -> if isUpper n then Const k else Var k
-              a -> error "unknow error from use"
-            contm = name
-            pf' = replace pf pos contm
+              a -> error "unknow error from applyH"
+            pf' = replace pf pos name
         in return (gn, pf', res, Nothing, i)
       else 
-      let         (vars, head, body) = separate f
-                  i' = i + length vars
-                  fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
-                  renaming = zip vars (map Var fresh)
-                  body'' = map (applyE renaming) body
-                  head'' = applyE renaming head
-                  ss = runHMatch ks head'' goal -- trace (show head''++ "--from rhm--"++ show goal ++ show k) $
-              in case ss of
-                [] ->
-                          let m' = Just $ text "can't match" <+> disp (head'') $$ text "against"
-                                   <+> disp (goal) $$ (nest 2 (text "when applying" <+>text k <+> text ":" <+>
-                                                               disp f)) $$
-                                   (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-                          in [(gn, pf, (pos, goal, gamma):res, m', i)]
-                _ ->
-                  if null body && null vars then do
-                    sub <- ss
+        let (vars, head, body) = separate f
+            i' = i + length vars
+            fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
+            renaming = zip vars (map Var fresh)
+            body'' = map (applyE renaming) body
+            head'' = applyE renaming head
+            ss = runHMatch ks head'' goal
+          -- trace (show head''++ "--from rhm--"++ show goal ++ show k) $
+        in case ss of
+             [] ->
+               let m' = Just $
+                        text "can't match" <+> disp (head'') $$ text "against"
+                        <+> disp (goal) $$
+                        (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                        (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+               in [(gn, pf, (pos, goal, gamma, vs):res, m', i)]
+             _ -> 
+               if null body && null vars then -- ERSM
+                 do sub <- ss
                     let evars = free head''
                         refresher = [(x, t) | x <- evars, (y, t) <- sub, x == y]
                         pf1 = normEvidence $ applyE refresher pf
-                        res' = map (\ (a, gl, gm) ->
---                                     (a, normalize $ applyE refresher gl, gm)) res
-                                     (a, normalize $ applyE refresher gl, (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm))) res
+                        res' = map (\ (a, gl, gm, v) ->
+                                      (a, normalize $ applyE refresher gl, (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm), v)) res
                         head' = normalize $ applyE sub head''
                         name = case k of
                                    n:_ -> if isUpper n then Const k else Var k
                                    a -> error "unknow error from use"
                         contm = name
                         pf' = replace pf1 pos contm
-                        
-                    return (gn, pf', res', Nothing, i)  
-
-                  else do
-                    sub <-  ss -- trace (show ss ++ "this is ss")$
+                        flag = scopeCheck refresher res 
+                    if flag then return (gn, pf', res', Nothing, i)
+                      else
+                      let m' = Just $ text "scoping error when applying" <+> text k in
+                        [(gn, pf, (pos, goal, gamma, vs):res, m', i)]
+               else -- RSM
+                 do sub <-  ss -- trace (show ss ++ "this is ss")$
                     let body' = map normalize $ (map (applyE sub) body'')
                         head' = normalize $ applyE sub head''
                         np = ([ s | r <- fresh, let s = case lookup r sub of
@@ -99,17 +107,31 @@ applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k =
                                   ])  -- reordering argument (yy, s') <- sub, let s = (if r == yy then s' else (Var r))
                         name = case k of
                                n:_ -> if isUpper n then Const k else Var k
-                               a -> error "unknow error from apply"
+                               a -> error "unknow error from applyH"
                         contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
                         pf' = replace pf pos contm
                         zeros = makeZeros $ length body'
                         ps = map (\ x -> pos++x++[1]) zeros
-                        new = map (\(p, g) -> (p, g, gamma)) $ zip ps body'
+                        new = map (\(p, g) -> (p, g, gamma,vs)) $ zip ps body'
                     return (gn, pf', new++res, Nothing, i')  
 
-applyH ks (gn, pf, (pos, goal, gamma):res, m@(Just _), i) k =
-  [(gn, pf, (pos, goal, gamma):res, m, i)]
+applyH ks (gn, pf, (pos, goal, gamma, vs):res, m@(Just _), i) k =
+  [(gn, pf, (pos, goal, gamma, vs):res, m, i)]
 
+canApply :: [(Name, Exp)] -> (Pos, Exp, PfEnv, [Name]) -> Bool
+canApply sub (_, g, env, vs) =
+  let dom = map fst sub
+      cod = map snd sub
+      cod' = map rebind cod
+      codVars = nub (concat $ map free cod')
+      gv = free g
+      fvs = concat (map free $ map snd env)
+  in if null (dom `intersect` (gv ++ fvs)) then True
+     else (S.fromList codVars) `S.isSubsetOf` (S.fromList vs)
+  
+scopeCheck :: [(Name, Exp)] -> [(Pos, Exp, PfEnv, [Name])] -> Bool
+scopeCheck sub env = all (canApply sub) env
+  
 separate f = let (vars, imp) = getVars f
                  (bs, h) = getPre imp
              in (vars, h, bs)
@@ -136,12 +158,14 @@ constrProof n init ks exp =
   case [s | s <- finals, success s] of
         (_, pf, _, _, _):_ -> Right pf -- trace (show $ disp pf) $ 
         [] -> let rs = map (\ a -> case a of
-                               (_, _, (_,g,_):_ , m, _) -> case m of
-                                                Nothing -> text "unfinish goal" <+> disp g
-                                                Just m' -> m'
-                               (_, _, [] , m, _) -> case m of
-                                                Nothing -> text "strange" 
-                                                Just m' -> m' 
+                               (_, _, (_,g,_,_):_ , m, _) ->
+                                 case m of
+                                   Nothing -> text "unfinish goal" <+> disp g
+                                   Just m' -> m'
+                               (_, _, [] , m, _) ->
+                                 case m of
+                                   Nothing -> text "strange" 
+                                   Just m' -> m' 
                            ) finals
               in Left $ sep (map (\ (d, i) -> text "Wrong situation" <+> int i $$ nest 2 d)
                              $ zip rs [1..])
@@ -163,10 +187,10 @@ f1 = Forall "p'" (Forall "f" (Forall "x" (Forall "z" (Imply (Forall "p" (Forall 
 g2 = PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (PApp (Const "S") (Var "x")))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "z")))))
 
 h2 = PApp (Var "p1fresh") (PApp (PApp (Const "H") (PApp (Const "S") (Var "x2fresh"))) (Var "y3fresh"))
-initstate1 = [("h", f1, [([], f1, [("h", f1)])], Nothing, 0)]
-man1 = case [s | s <- construction "h" env2 initstate1 exp1, success s] of
-        (_, pf, _, _, _):_ -> disp pf
-man3 = construction "h" env2 initstate1 (Var "h")
+-- initstate1 = [("h", f1, [([], f1, [("h", f1)])], Nothing, 0)]
+-- man1 = case [s | s <- construction "h" env2 initstate1 exp1, success s] of
+--         (_, pf, _, _, _):_ -> disp pf
+-- man3 = construction "h" env2 initstate1 (Var "h")
 
 g1 = PApp (Var "p'") (PApp (PApp (Var "f") (PApp (Const "S") (PApp (Const "S") (Var "x")))) (PApp (Const "G") (PApp (PApp (Const "H") (Var "x")) (PApp (Const "S") (Var "z")))))
 

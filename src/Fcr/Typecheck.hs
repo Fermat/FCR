@@ -433,7 +433,7 @@ boundVars vs (Var x) = if x `elem` vs then [x] else []
 boundVars vs (PApp t1 t2) = boundVars vs t1 ++ boundVars vs t2
 
 varOrd :: [Name] -> Exp -> Bool
-varOrd vs t = vs == boundVars vs t
+varOrd vs t = vs == (nub $ boundVars vs t)
 
 
 {-
