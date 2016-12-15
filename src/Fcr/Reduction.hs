@@ -20,10 +20,11 @@ type PfEnv = [(Name, Exp)]
 -- Error message, counter for generating new variable during the resolution)
 type ProofState = (KSubst, Name, Exp, [(Pos, Exp, PfEnv, Exp)], Maybe Doc, Int)
 
-reduce :: [ProofState] -> [ProofState]
-reduce ((ks, gn, pf, [], Nothing, i):tai) = reduce tai
-reduce ((ks, gn, pf, res, Just m, i):tai) = (ks, gn, pf, res, Just m, i) : reduce tai
-reduce ((ks, gn, pf, (pos, goal, gamma, a@(Lambda x Nothing t)):res, Nothing, i):tai) =
+transition :: [ProofState] -> [ProofState]
+transition [] = []
+transition ((ks, gn, pf, [], Nothing, i):tai) = (ks, gn, pf, [], Nothing, i) : transition tai
+transition ((ks, gn, pf, res, Just m, i):tai) = (ks, gn, pf, res, Just m, i) : transition tai
+transition ((ks, gn, pf, (pos, goal, gamma, a@(Lambda x Nothing t)):res, Nothing, i):tai) =
   let (ns, b) = (map fst $ viewLVars a, viewLBody a)
       (vars, head, body) = separate goal
       lb = length body
@@ -39,15 +40,15 @@ reduce ((ks, gn, pf, (pos, goal, gamma, a@(Lambda x Nothing t)):res, Nothing, i)
       newAbs = foldr (\ a b -> Lambda a Nothing b) newLam absNames
       pf' = replace pf pos newAbs
       pos' = pos ++ take num stream2
-  in reduce $ (ks, gn, pf', (pos',head', gamma++newEnv, b):res, Nothing, i+lv):tai
+  in transition $ (ks, gn, pf', (pos',head', gamma++newEnv, b):res, Nothing, i+lv):tai
 
-reduce ((ks, gn, pf, curState@((pos, goal, gamma, App p1 p2):res), Nothing, i):tai) =
+transition ((ks, gn, pf, curState@((pos, goal, gamma, App p1 p2):res), Nothing, i):tai) =
   let (k':es) = flatten (App p1 p2)
       k = extract k'
   in
     case lookup k gamma of
       Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
-        (ks, gn, pf, (pos, goal, gamma, App p1 p2):res, m', i) : reduce tai
+        (ks, gn, pf, (pos, goal, gamma, App p1 p2):res, m', i) : transition tai
       Just f ->
         let (vars, head, body) = separate f
             i' = i + length vars
@@ -56,17 +57,18 @@ reduce ((ks, gn, pf, curState@((pos, goal, gamma, App p1 p2):res), Nothing, i):t
             body'' = map (applyE renaming) body
             head'' = applyE renaming head
             ss = runHMatch ks head'' goal
-          -- trace (show head''++ "--from rhm--"++ show goal ++ show k) $
-        in case ss of
-             [] ->
-               let m' = Just $
-                        text "can't match" <+> disp (head'') $$ text "against"
-                        <+> disp (goal) $$
-                        (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
-                        (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-               in (ks, gn, pf, (pos, goal, gamma, App p1 p2):res, m', i) : reduce tai
-             _ -> 
-                 let newState = [(ks, gn, pf', new++res, Nothing, i') |
+        in
+          if length body == length es then
+            case ss of
+              [] ->
+                let m' = Just $
+                         text "can't match" <+> disp (head'') $$ text "against"
+                         <+> disp (goal) $$
+                         (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                         (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+                in (ks, gn, pf, (pos, goal, gamma, App p1 p2):res, m', i) : transition tai
+              _ -> 
+                let newState = [(ks, gn, pf', new++res, Nothing, i') |
                                   sub <- ss,
                                   let body' = map normalize $ (map (applyE sub) body''),
                                   let head' = normalize $ applyE sub head'',
@@ -80,35 +82,41 @@ reduce ((ks, gn, pf, curState@((pos, goal, gamma, App p1 p2):res), Nothing, i):t
                                   let ps = map (\ x -> pos++x++[1]) zeros,
                                   let reArrange = arrange $ zip (zip ps body') es,
                                   let new = map (\((p, g), l') -> (p, g, gamma,l')) reArrange] in
-                          reduce $ newState++tai                              
-                    
+                          transition $ newState++tai                              
+              else let m' = Just $
+                         text "arity mismatch, when matching" <+> disp (head'') $$ text "against"
+                         <+> disp (goal) $$
+                         (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                         (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+                in (ks, gn, pf, (pos, goal, gamma, App p1 p2):res, m', i) : transition tai
+     
 
-reduce ((ks, gn, pf, curState@((pos, goal, gamma, Const k):res), Nothing, i):tai) =
+transition ((ks, gn, pf, curState@((pos, goal, gamma, Const k):res), Nothing, i):tai) =
   case lookup k gamma of
     Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
-      (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : reduce tai
+      (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : transition tai
     Just f ->
       if f `alphaEq` goal then
         let name = Const k
             pf' = replace pf pos name
-        in  reduce $ (ks, gn, pf', res, Nothing, i):tai
+        in  transition $ (ks, gn, pf', res, Nothing, i):tai
       else 
         let m' = Just $
                  text "can't match" <+> disp f $$ text "against"
                  <+> disp (goal) $$
                  (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
                  (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-        in (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : reduce tai
+        in (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : transition tai
 
-reduce ((ks, gn, pf, curState@((pos, goal, gamma, Var k):res), Nothing, i):tai) =  
+transition ((ks, gn, pf, curState@((pos, goal, gamma, Var k):res), Nothing, i):tai) =  
   case lookup k gamma of
     Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
-      (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : reduce tai
+      (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : transition tai
     Just f ->
       if f `alphaEq` goal then
         let name = Const k
             pf' = replace pf pos name
-        in  reduce $ (ks, gn, pf', res, Nothing, i):tai
+        in  transition $ (ks, gn, pf', res, Nothing, i):tai
       else 
         let (vars, head, body) = separate f
             i' = i + length vars
@@ -117,16 +125,24 @@ reduce ((ks, gn, pf, curState@((pos, goal, gamma, Var k):res), Nothing, i):tai) 
             body'' = map (applyE renaming) body
             head'' = applyE renaming head
             ss = runHMatch ks head'' goal
-        in case ss of
-             [] ->
-               let m' = Just $
-                        text "can't match" <+> disp (head'') $$ text "against"
-                        <+> disp (goal) $$
-                        (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
-                        (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-               in (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : reduce tai
-             _ -> 
-               let newStates = [ (ks, gn, pf', res', Nothing, i) | sub <- ss,
+        in if not (null body) then
+             let m' = Just $
+                      text "unhandle situation when matching" <+> disp (head'') $$ text "against"
+                      <+> disp (goal) $$
+                      (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                          (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+             in (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : transition tai
+           else 
+             case ss of
+               [] ->
+                 let m' = Just $
+                          text "can't match" <+> disp (head'') $$ text "against"
+                          <+> disp (goal) $$
+                          (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                          (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+                 in (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : transition tai
+               _ -> 
+                 let newStates = [ (ks, gn, pf', res', Nothing, i) | sub <- ss,
                                       let evars = free head'',
                                       let refresher = [(x, t) | x <- evars,
                                                        (y, t) <- sub, x == y],
@@ -137,7 +153,7 @@ reduce ((ks, gn, pf, curState@((pos, goal, gamma, Var k):res), Nothing, i):tai) 
                                       let name = Var k,
                                       let pf' = replace pf1 pos name,
                                       scopeCheck refresher pf ] in
-                            reduce $ newStates ++ tai
+                            transition $ newStates ++ tai
                
 
 
@@ -203,19 +219,19 @@ stream = 0:stream
 stream2 = 2:stream2
 make n | n > 0 = take (n-1) stream
 
-constrProof :: Name -> [ProofState] -> KSubst -> Exp -> Either Doc Exp
-constrProof n ini ks exp =
-  let finals = construction' n ks ini exp in
+constrProof :: [ProofState] -> Either Doc Exp
+constrProof ini =
+  let finals = transition ini in
   case [s | s <- finals, success s] of
-        (_, pf, _, _, _):_ -> Right pf -- trace (show $ disp pf) $ 
+        (_, _, pf, _, _, _):_ -> Right pf -- trace (show $ disp pf) $ 
         [] -> let rs = map (\ a -> case a of
-                               (_, _, (_,g,_):_ , m, _) ->
+                               (_, _, _, (_,g,_, _):_ , m, _) ->
                                  case m of
                                    Nothing -> text "unfinish goal" <+> disp g
                                    Just m' -> m'
-                               (_, _, [] , m, _) ->
+                               (_, _, _, [] , m, _) ->
                                  case m of
-                                   Nothing -> text "strange" 
+                                   Nothing -> text "strange situation" 
                                    Just m' -> m' 
                            ) finals
               in Left $ sep (map (\ (d, i) -> text "Wrong situation" <+> int i $$ nest 2 d)
