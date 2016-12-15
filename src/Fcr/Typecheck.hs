@@ -423,17 +423,17 @@ wellKind vs ks subs = [ s | s <- subs, helper vs s ks]
                                    let (vs, b) = (viewAVars t, viewABody t) in
                                    case runKinding t ks of
                                              Left err -> False
-                                             Right k | isTerm k && varOrd vs b -> 
+                                             Right k | isTerm k -> -- && varOrd vs b
                                                helper xs y z
                                                      | otherwise -> False
                                                
-boundVars :: [Name] -> Exp -> [Name]
-boundVars vs (Const x) = []
-boundVars vs (Var x) = if x `elem` vs then [x] else []
-boundVars vs (PApp t1 t2) = boundVars vs t1 ++ boundVars vs t2
+-- boundVars :: [Name] -> Exp -> [Name]
+-- boundVars vs (Const x) = []
+-- boundVars vs (Var x) = if x `elem` vs then [x] else []
+-- boundVars vs (PApp t1 t2) = boundVars vs t1 ++ boundVars vs t2
 
-varOrd :: [Name] -> Exp -> Bool
-varOrd vs t = vs == (nub $ boundVars vs t)
+-- varOrd :: [Name] -> Exp -> Bool
+-- varOrd vs t = vs == (nub $ boundVars vs t)
 
 
 {-

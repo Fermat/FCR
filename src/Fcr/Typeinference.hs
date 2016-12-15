@@ -92,11 +92,16 @@ applyH ks (gn, pf, curState@((pos, goal, gamma, vs):res), Nothing, i) k =
                                    a -> error "unknow error from use"
                         contm = name
                         pf' = replace pf1 pos contm
-                        flag = scopeCheck refresher res 
+                        flag = scopeCheck refresher pf 
                     if flag then return (gn, pf', res', Nothing, i)
-                      else
-                      let m' = Just $ text "scoping error when applying" <+> text k in
-                        [(gn, pf, (pos, goal, gamma, vs):res, m', i)]
+                      else 
+                      let m' = Just $
+                            text "existential scope error when matching" <+>
+                            disp (head'') $$ text "against"
+                            <+> disp (goal) $$
+                            (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                            (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+                      in return (gn, pf, (pos, goal, gamma, vs):res, m', i)
                else -- RSM
                  do sub <-  ss -- trace (show ss ++ "this is ss")$
                     let body' = map normalize $ (map (applyE sub) body'')
@@ -118,20 +123,35 @@ applyH ks (gn, pf, curState@((pos, goal, gamma, vs):res), Nothing, i) k =
 applyH ks (gn, pf, (pos, goal, gamma, vs):res, m@(Just _), i) k =
   [(gn, pf, (pos, goal, gamma, vs):res, m, i)]
 
-canApply :: [(Name, Exp)] -> (Pos, Exp, PfEnv, [Name]) -> Bool
-canApply sub (_, g, env, vs) =
-  let dom = map fst sub
-      cod = map snd sub
-      cod' = map rebind cod
-      codVars = nub (concat $ map free cod')
-      gv = free g
-      fvs = concat (map free $ map snd env)
-  in if null (dom `intersect` (gv ++ fvs)) then True
-     else (S.fromList codVars) `S.isSubsetOf` (S.fromList vs)
+scopeCheck :: [(Name, Exp)] -> Exp -> Bool
+scopeCheck sub pf =
+  let codom = map rebind (map snd sub)
+      vars = concat $ map free codom
+      epos = concat [getPos v pf | v <- map fst sub ]
+      varpos = concat [map init (getPos' v pf) | v <- vars ]
+  in and [ v `isPrefixOf` e | e <- epos, v <- varpos ]                   
+                    
+getPos :: Name -> Exp -> [Pos]
+getPos x (Var y) = if x == y then [[]] else []
+getPos x (Const y) = []
+getPos x (App t1 t2) = (map (0:) $ getPos x t1) ++ (map (1:) $ getPos x t2)
+getPos x (TApp t1 t2) = (map (0:) $ getPos x t1) ++ (map (1:) $ getPos x t2)
+--map (0:) $ getPos x t1
+getPos x (Lambda n _ t2) = map (1:) $ getPos x t2
+getPos x _ = []
+
+-- get position of lambda bind var
+getPos' :: Name -> Exp -> [Pos]
+getPos' x (Var y) = []
+getPos' x (Const y) = []
+getPos' x (App t1 t2) = (map (0:) $ getPos' x t1) ++ (map (1:) $ getPos' x t2)
+getPos' x (TApp t1 t2) = (map (0:) $ getPos' x t1) 
+--map (0:) $ getPos' x t1
+getPos' x (Lambda n _ t2) = if x == n then [[0]] else map (1:) $ getPos' x t2
+getPos' x _ = []
+
   
-scopeCheck :: [(Name, Exp)] -> [(Pos, Exp, PfEnv, [Name])] -> Bool
-scopeCheck sub env = all (canApply sub) env
-  
+
 separate f = let (vars, imp) = getVars f
                  (bs, h) = getPre imp
              in (vars, h, bs)
