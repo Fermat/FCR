@@ -16,15 +16,15 @@ import qualified Data.Set as S
 type PfEnv = [(Name, Exp)]
 
 -- (global name for the proof, Mixed proof and goals,
--- [(position, current goal, Environment, list of type var)],
+-- [(position, current goal, Environment)],
 -- Error message, counter for generating new variable during the resolution)
-type ProofState = (Name, Exp, [(Pos, Exp, PfEnv, [Name])], Maybe Doc, Int)
+type ProofState = (Name, Exp, [(Pos, Exp, PfEnv)], Maybe Doc, Int)
 
 intros :: ProofState -> [Name] -> ProofState
 intros (gn, pf, [], m, i) ns =
   let err = Just $ text "no more subgoals" in (gn, pf, [], err, i)
 
-intros (gn, pf, (pos, goal, gamma, vs):res, Nothing, i) ns =
+intros (gn, pf, (pos, goal, gamma):res, Nothing, i) ns =
   let (vars, head, body) = separate goal
       lb = length body
       lv = length vars
@@ -39,9 +39,9 @@ intros (gn, pf, (pos, goal, gamma, vs):res, Nothing, i) ns =
       newAbs = foldr (\ a b -> Lambda a Nothing b) newLam absNames
       pf' = replace pf pos newAbs
       pos' = pos ++ take num stream2
-  in (gn, pf', (pos',head', gamma++newEnv, vs++absNames):res, Nothing, i+lv)
+  in (gn, pf', (pos',head', gamma++newEnv):res, Nothing, i+lv)
 
-intros (gn, pf, (pos, goal, gamma, vs):res, m, i) ns = (gn, pf, (pos, goal, gamma, vs):res, m, i)
+intros (gn, pf, (pos, goal, gamma):res, m, i) ns = (gn, pf, (pos, goal, gamma):res, m, i)
 
 -- smart higher order apply, if it fails, it returns a singleton list with
 -- error mark as Just otherwise it succeeds with multiple proof states
@@ -50,10 +50,10 @@ applyH :: KSubst -> ProofState -> Name -> [ProofState]
 applyH ks (gn, pf, [], m, i) k =
     let m' = Just $ text "no more subgoals" in [(gn, pf, [], m', i)]
 
-applyH ks (gn, pf, curState@((pos, goal, gamma, vs):res), Nothing, i) k = 
+applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k = 
   case lookup k gamma of
     Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
-      [(gn, pf, (pos, goal, gamma, vs):res, m', i)]
+      [(gn, pf, (pos, goal, gamma):res, m', i)]
     Just f ->
       if f `alphaEq` goal then
         let name = case k of
@@ -77,15 +77,15 @@ applyH ks (gn, pf, curState@((pos, goal, gamma, vs):res), Nothing, i) k =
                         <+> disp (goal) $$
                         (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
                         (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-               in [(gn, pf, (pos, goal, gamma, vs):res, m', i)]
+               in [(gn, pf, (pos, goal, gamma):res, m', i)]
              _ -> 
                if null body && null vars then -- ERSM
                  do sub <- ss
                     let evars = free head''
                         refresher = [(x, t) | x <- evars, (y, t) <- sub, x == y]
                         pf1 = normEvidence $ applyE refresher pf
-                        res' = map (\ (a, gl, gm, v) ->
-                                      (a, normalize $ applyE refresher gl, (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm), v)) res
+                        res' = map (\ (a, gl, gm) ->
+                                      (a, normalize $ applyE refresher gl, (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm))) res
                         head' = normalize $ applyE sub head''
                         name = case k of
                                    n:_ -> if isUpper n then Const k else Var k
@@ -101,7 +101,7 @@ applyH ks (gn, pf, curState@((pos, goal, gamma, vs):res), Nothing, i) k =
                             <+> disp (goal) $$
                             (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
                             (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-                      in return (gn, pf, (pos, goal, gamma, vs):res, m', i)
+                      in return (gn, pf, (pos, goal, gamma):res, m', i)
                else -- RSM
                  do sub <-  ss -- trace (show ss ++ "this is ss")$
                     let body' = map normalize $ (map (applyE sub) body'')
@@ -117,11 +117,20 @@ applyH ks (gn, pf, curState@((pos, goal, gamma, vs):res), Nothing, i) k =
                         pf' = replace pf pos contm
                         zeros = makeZeros $ length body'
                         ps = map (\ x -> pos++x++[1]) zeros
-                        new = map (\(p, g) -> (p, g, gamma,vs)) $ zip ps body'
+                        reArrange = arrange $ zip ps body'
+                        new = map (\(p, g) -> (p, g, gamma)) reArrange
                     return (gn, pf', new++res, Nothing, i')  
 
-applyH ks (gn, pf, (pos, goal, gamma, vs):res, m@(Just _), i) k =
-  [(gn, pf, (pos, goal, gamma, vs):res, m, i)]
+applyH ks (gn, pf, (pos, goal, gamma):res, m@(Just _), i) k =
+  [(gn, pf, (pos, goal, gamma):res, m, i)]
+
+arrange :: [(Pos, Exp)] -> [(Pos, Exp)]
+arrange ls = let low = [ (p, f) | (p, f) <- ls, let fr = free f, not (null fr), 
+                         let (vars, h, _) = separate f, not $ null (fr `intersect` (free h))]
+                 high = filter (\ l -> not (l `elem` low)) ls
+             in high ++ low
+
+
 
 scopeCheck :: [(Name, Exp)] -> Exp -> Bool
 scopeCheck sub pf =
@@ -173,12 +182,12 @@ stream2 = 2:stream2
 make n | n > 0 = take (n-1) stream
 
 constrProof :: Name -> [ProofState] -> KSubst -> Exp -> Either Doc Exp
-constrProof n init ks exp =
-  let finals = construction' n ks init exp in
+constrProof n ini ks exp =
+  let finals = construction' n ks ini exp in
   case [s | s <- finals, success s] of
         (_, pf, _, _, _):_ -> Right pf -- trace (show $ disp pf) $ 
         [] -> let rs = map (\ a -> case a of
-                               (_, _, (_,g,_,_):_ , m, _) ->
+                               (_, _, (_,g,_):_ , m, _) ->
                                  case m of
                                    Nothing -> text "unfinish goal" <+> disp g
                                    Just m' -> m'
@@ -233,40 +242,40 @@ helper ((_,g,_):xs) = disp g : helper xs
 -- a wraper on construction just to handle loop better.
 construction' :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
 
-construction' n ks init a@(App t_1 t_2) =
-  let  new = map (\ x -> intros x []) init 
+construction' n ks ini a@(App t_1 t_2) =
+  let  new = map (\ x -> intros x []) ini 
   in construction n ks new a
-construction' n ks init a = construction n ks init a     
+construction' n ks ini a = construction n ks ini a     
 
 construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
 --construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp) ++ "--" ++ (show $ display init)) False = undefined
-construction n ks init (Var v) =
-  concat $ map (\ x -> applyH ks x v) init
+construction n ks ini (Var v) =
+  concat $ map (\ x -> applyH ks x v) ini
 
-construction n ks init (Const v) =
-  concat $ map (\ x -> applyH ks x v) init
+construction n ks ini (Const v) =
+  concat $ map (\ x -> applyH ks x v) ini
 
-construction n ks init a@(Lambda x Nothing t) =
+construction n ks ini a@(Lambda x Nothing t) =
   let (vars, b) = (map fst $ viewLVars a, viewLBody a)
-      new = map (\ x -> intros x vars) init 
+      new = map (\ x -> intros x vars) ini 
   in construction n ks new b
 
-construction n ks init (App (Const k) p2) =
-  let next = concat $ map (\ x -> applyH ks x k) init
+construction n ks ini (App (Const k) p2) =
+  let next = concat $ map (\ x -> applyH ks x k) ini
   in construction n ks next p2
 
-construction n ks init (App (Var v) p2) =
-  let next = concat $ map (\ x -> applyH ks x v) init
+construction n ks ini (App (Var v) p2) =
+  let next = concat $ map (\ x -> applyH ks x v) ini
   in construction n ks next p2
 
 --  x App (App y z) q
-construction n ks init a@(App p1 p2) = 
+construction n ks ini a@(App p1 p2) = 
   case flatten a of
     (Var v): xs ->
-      let next = concat $ map (\ x -> applyH ks x v) init
+      let next = concat $ map (\ x -> applyH ks x v) ini
       in foldl (\ z x -> construction n ks z x) next xs
     (Const v): xs ->
-      let next = concat $ map (\ x -> applyH ks x v) init
+      let next = concat $ map (\ x -> applyH ks x v) ini
       in foldl (\ z x -> construction n ks z x) next xs
          
 --    a -> error $ show a
