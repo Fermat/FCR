@@ -19,9 +19,9 @@ f a1 a2 b2 a3 b3 a4 a5 =
    a1 (a2 (b2 (a5 (a4 (f (\ c . a1 c) (\ c . a3 (a2 c)) 
                          (\ c . (b3 (b2 c))) 
                          (\ c . a3 c) 
-                         (\ c . b3 (b3 c))) 
+                         (\ c . b3 (b3 c)) 
                          a4 
-                         (\ c . a5 (a5 c))))))
+                         (\ c . a5 (a5 c)))))))
 
 h : G T T Z (S Z)
 h = f (\ c . K1 c) K2 K2 K3 K3 K4 K5

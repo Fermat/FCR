@@ -5,18 +5,18 @@ K4 : R (B x) <= L (A (B x))
 K5 : R (B x) <= A (L (B x))
 
 
-f : forall p l r y . (forall p x . p (l (A (B x))) => p (r (B x))) => 
+f : forall p l r y . (forall p x . p (l (A (A x))) => p (A (A (l x)))) => 
                      (forall p x . p (A (r x)) => p (r (A x))) =>
                      (forall p x . p (B (r x)) => p (B (l x))) =>
-                     (forall p x . p (l (A (A x))) => p (A (A (l x)))) => 
+                     (forall p x . p (l (A (B x))) => p (r (B x))) => 
                      (forall p x . p (A (l (B x))) => p (r (B x))) => p (B (r (B y)))
 
-f a4 a2 a3 a1 a5 =
-  a4 (a3 (a2 (a5 (a1 (a3 (a2 (a2 (f (\ c . a4 (a1 c)) 
+f a1 a2 a3 a4 a5 =
+  a4 (a3 (a2 (a5 (a1 (a3 (a2 (a2 (f (\ c . a1 c)
                                     (\ c . a2 c) 
                                     (\ c . a3 (a2 (a2 c))) 
-                                    (\ c . a1 c)
+                                    (\ c . a4 (a1 c)) 
                                     (\ c . a5 (a1 c))))))))))
 
 h : B (R (B y))
-h = f (\ c . K4 c) K2 K3 K1 K5
+h = f K1 K2 K3 (\ c . K4 c) K5
