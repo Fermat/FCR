@@ -1,8 +1,8 @@
-module Fcr.Typeinference where
+module Fcr.Reduction where
 
 import Fcr.Syntax
 import Fcr.Monad
-import Fcr.Rewrite hiding (merge')
+import Fcr.Rewrite hiding (merge', reduce)
 import Fcr.PrettyPrinting
 import Fcr.Typecheck
 
@@ -18,14 +18,14 @@ type PfEnv = [(Name, Exp)]
 -- (global name for the proof, Mixed proof and goals,
 -- [(position, current sub goal, Environment)],
 -- Error message, counter for generating new variable during the resolution)
-type ProofState = (Name, Exp, [(Pos, Exp, PfEnv, Exp)], Maybe Doc, Int)
+type ProofState = (KSubst, Name, Exp, [(Pos, Exp, PfEnv, Exp)], Maybe Doc, Int)
 
-intros :: ProofState -> [Name] -> ProofState
-intros (gn, pf, [], m, i) ns =
-  let err = Just $ text "no more subgoals" in (gn, pf, [], err, i)
-
-intros (gn, pf, (pos, goal, gamma):res, Nothing, i) ns =
-  let (vars, head, body) = separate goal
+reduce :: [ProofState] -> [ProofState]
+reduce ((ks, gn, pf, [], Nothing, i):tai) = reduce tai
+reduce ((ks, gn, pf, res, Just m, i):tai) = (ks, gn, pf, res, Just m, i) : reduce tai
+reduce ((ks, gn, pf, (pos, goal, gamma, a@(Lambda x Nothing t)):res, Nothing, i):tai) =
+  let (ns, b) = (map fst $ viewLVars a, viewLBody a)
+      (vars, head, body) = separate goal
       lb = length body
       lv = length vars
       num = lv + lb
@@ -39,29 +39,16 @@ intros (gn, pf, (pos, goal, gamma):res, Nothing, i) ns =
       newAbs = foldr (\ a b -> Lambda a Nothing b) newLam absNames
       pf' = replace pf pos newAbs
       pos' = pos ++ take num stream2
-  in (gn, pf', (pos',head', gamma++newEnv):res, Nothing, i+lv)
+  in reduce $ (ks, gn, pf', (pos',head', gamma++newEnv, b):res, Nothing, i+lv):tai
 
-intros (gn, pf, (pos, goal, gamma):res, m, i) ns = (gn, pf, (pos, goal, gamma):res, m, i)
-
--- smart higher order apply, if it fails, it returns a singleton list with
--- error mark as Just otherwise it succeeds with multiple proof states
-applyH :: KSubst -> ProofState -> Name -> [ProofState]
--- applyH ks init k | trace ("--applyH " ++show (disp k)) False = undefined
-applyH ks (gn, pf, [], m, i) k =
-    let m' = Just $ text "no more subgoals" in [(gn, pf, [], m', i)]
-
-applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k = 
-  case lookup k gamma of
-    Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
-      [(gn, pf, (pos, goal, gamma):res, m', i)]
-    Just f ->
-      if f `alphaEq` goal then
-        let name = case k of
-              n:_ -> if isUpper n then Const k else Var k
-              a -> error "unknow error from applyH"
-            pf' = replace pf pos name
-        in return (gn, pf', res, Nothing, i)
-      else 
+reduce ((ks, gn, pf, curState@((pos, goal, gamma, App p1 p2):res), Nothing, i):tai) =
+  let (k':es) = flatten (App p1 p2)
+      k = extract k'
+  in
+    case lookup k gamma of
+      Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
+        (ks, gn, pf, (pos, goal, gamma, App p1 p2):res, m', i) : reduce tai
+      Just f ->
         let (vars, head, body) = separate f
             i' = i + length vars
             fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
@@ -77,55 +64,88 @@ applyH ks (gn, pf, curState@((pos, goal, gamma):res), Nothing, i) k =
                         <+> disp (goal) $$
                         (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
                         (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-               in [(gn, pf, (pos, goal, gamma):res, m', i)]
+               in (ks, gn, pf, (pos, goal, gamma, App p1 p2):res, m', i) : reduce tai
              _ -> 
-               if null body && null vars then -- ERSM
-                 do sub <- ss
-                    let evars = free head''
-                        refresher = [(x, t) | x <- evars, (y, t) <- sub, x == y]
-                        pf1 = normEvidence $ applyE refresher pf
-                        res' = map (\ (a, gl, gm) ->
-                                      (a, normalize $ applyE refresher gl, (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm))) res
-                        head' = normalize $ applyE sub head''
-                        name = case k of
-                                   n:_ -> if isUpper n then Const k else Var k
-                                   a -> error "unknow error from use"
-                        contm = name
-                        pf' = replace pf1 pos contm
-                        flag = scopeCheck refresher pf 
-                    if flag then return (gn, pf', res', Nothing, i)
-                      else 
-                      let m' = Just $
-                            text "existential scope error when matching" <+>
-                            disp (head'') $$ text "against"
-                            <+> disp (goal) $$
-                            (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
-                            (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-                      in return (gn, pf, (pos, goal, gamma):res, m', i)
-               else -- RSM
-                 do sub <-  ss -- trace (show ss ++ "this is ss")$
-                    let body' = map normalize $ (map (applyE sub) body'')
-                        head' = normalize $ applyE sub head''
-                        np = ([ s | r <- fresh, let s = case lookup r sub of
-                                                      Nothing -> (Var r)
-                                                      Just t -> t
-                                  ])  -- reordering argument (yy, s') <- sub, let s = (if r == yy then s' else (Var r))
-                        name = case k of
-                               n:_ -> if isUpper n then Const k else Var k
-                               a -> error "unknow error from applyH"
-                        contm = foldl' (\ z x -> App z x) (foldl' (\ z x -> TApp z x) name np) body'
-                        pf' = replace pf pos contm
-                        zeros = makeZeros $ length body'
-                        ps = map (\ x -> pos++x++[1]) zeros
-                        reArrange = arrange $ zip ps body'
-                        new = map (\(p, g) -> (p, g, gamma)) reArrange
-                    return (gn, pf', new++res, Nothing, i')  
+                 let newState = [(ks, gn, pf', new++res, Nothing, i') |
+                                  sub <- ss,
+                                  let body' = map normalize $ (map (applyE sub) body''),
+                                  let head' = normalize $ applyE sub head'',
+                                  let np = ([ s | r <- fresh, let s = case lookup r sub of
+                                                                        Nothing -> (Var r)
+                                                                        Just t -> t]),
+                                  let contm = foldl' (\ z x -> App z x)
+                                                     (foldl' (\ z x -> TApp z x) k' np) body',
+                                  let pf' = replace pf pos contm,
+                                  let zeros = makeZeros $ length body',
+                                  let ps = map (\ x -> pos++x++[1]) zeros,
+                                  let reArrange = arrange $ zip (zip ps body') es,
+                                  let new = map (\((p, g), l') -> (p, g, gamma,l')) reArrange] in
+                          reduce $ newState++tai                              
+                    
 
-applyH ks (gn, pf, (pos, goal, gamma):res, m@(Just _), i) k =
-  [(gn, pf, (pos, goal, gamma):res, m, i)]
+reduce ((ks, gn, pf, curState@((pos, goal, gamma, Const k):res), Nothing, i):tai) =
+  case lookup k gamma of
+    Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
+      (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : reduce tai
+    Just f ->
+      if f `alphaEq` goal then
+        let name = Const k
+            pf' = replace pf pos name
+        in  reduce $ (ks, gn, pf', res, Nothing, i):tai
+      else 
+        let m' = Just $
+                 text "can't match" <+> disp f $$ text "against"
+                 <+> disp (goal) $$
+                 (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                 (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+        in (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : reduce tai
 
-arrange :: [(Pos, Exp)] -> [(Pos, Exp)]
-arrange ls = let low = [ (p, f) | (p, f) <- ls, let fr = free f, not (null fr), 
+reduce ((ks, gn, pf, curState@((pos, goal, gamma, Var k):res), Nothing, i):tai) =  
+  case lookup k gamma of
+    Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
+      (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : reduce tai
+    Just f ->
+      if f `alphaEq` goal then
+        let name = Const k
+            pf' = replace pf pos name
+        in  reduce $ (ks, gn, pf', res, Nothing, i):tai
+      else 
+        let (vars, head, body) = separate f
+            i' = i + length vars
+            fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
+            renaming = zip vars (map Var fresh)
+            body'' = map (applyE renaming) body
+            head'' = applyE renaming head
+            ss = runHMatch ks head'' goal
+        in case ss of
+             [] ->
+               let m' = Just $
+                        text "can't match" <+> disp (head'') $$ text "against"
+                        <+> disp (goal) $$
+                        (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                        (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+               in (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : reduce tai
+             _ -> 
+               let newStates = [ (ks, gn, pf', res', Nothing, i) | sub <- ss,
+                                      let evars = free head'',
+                                      let refresher = [(x, t) | x <- evars,
+                                                       (y, t) <- sub, x == y],
+                                      let pf1 = normEvidence $ applyE refresher pf,
+                                      let res' = map (\ (a, gl, gm, e') ->
+                                                         (a, normalize $ applyE refresher gl, (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm), e')) res,
+                                      let head' = normalize $ applyE sub head'',
+                                      let name = Var k,
+                                      let pf' = replace pf1 pos name,
+                                      scopeCheck refresher pf ] in
+                            reduce $ newStates ++ tai
+               
+
+
+
+
+  
+arrange :: [((Pos, Exp), Exp)] -> [((Pos, Exp), Exp)]
+arrange ls = let low = [ ((p, f), e) | ((p, f), e) <- ls, let fr = free f, not (null fr), 
                          let (vars, h, _) = separate f, not $ null (fr `intersect` (free h))]
                  high = filter (\ l -> not (l `elem` low)) ls
              in high ++ low
@@ -149,6 +169,8 @@ getPos x (TApp t1 t2) = (map (0:) $ getPos x t1) ++ (map (1:) $ getPos x t2)
 getPos x (Lambda n _ t2) = map (1:) $ getPos x t2
 getPos x _ = []
 
+extract (Const v) = v
+extract (Var v) = v
 -- get position of lambda bind var
 getPos' :: Name -> Exp -> [Pos]
 getPos' x (Var y) = []
@@ -231,7 +253,7 @@ l2 = PApp (Const "`p8") (PApp (Const "`a0") (PApp (Const "`b1") (Const "`y9")))
 tl1 = runHMatch [] l1 l2 --sep [ disp s | s <- evalState (hmatch [] l1 l2) 0] 
 
 success :: ProofState -> Bool
-success (gn,pf,[], Nothing, i) = True
+success (ks, gn,pf,[], Nothing, i) = True
 success _ = False
 
 
@@ -240,47 +262,6 @@ helper [] = [empty]
 helper ((_,g,_):xs) = disp g : helper xs
 
 -- a wraper on construction just to handle loop better.
-construction' :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
-
-construction' n ks ini a@(App t_1 t_2) =
-  let  new = map (\ x -> intros x []) ini 
-  in construction n ks new a
-construction' n ks ini a = construction n ks ini a     
-
-construction :: Name -> KSubst -> [ProofState] -> Exp -> [ProofState]
---construction n ks init exp | trace (show ( n) ++ "-- " ++show (disp exp) ++ "--" ++ (show $ display init)) False = undefined
-construction n ks ini (Var v) =
-  concat $ map (\ x -> applyH ks x v) ini
-
-construction n ks ini (Const v) =
-  concat $ map (\ x -> applyH ks x v) ini
-
-construction n ks ini a@(Lambda x Nothing t) =
-  let (vars, b) = (map fst $ viewLVars a, viewLBody a)
-      new = map (\ x -> intros x vars) ini 
-  in construction n ks new b
-
-construction n ks ini (App (Const k) p2) =
-  let next = concat $ map (\ x -> applyH ks x k) ini
-  in construction n ks next p2
-
-construction n ks ini (App (Var v) p2) =
-  let next = concat $ map (\ x -> applyH ks x v) ini
-  in construction n ks next p2
-
---  x App (App y z) q
-construction n ks ini a@(App p1 p2) = 
-  case flatten a of
-    (Var v): xs ->
-      let next = concat $ map (\ x -> applyH ks x v) ini
-      in foldl (\ z x -> construction n ks z x) next xs
-    (Const v): xs ->
-      let next = concat $ map (\ x -> applyH ks x v) ini
-      in foldl (\ z x -> construction n ks z x) next xs
-         
---    a -> error $ show a
-
--- construction n ks init a@(App p1 p2) =
 
       
 
