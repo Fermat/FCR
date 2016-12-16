@@ -24,7 +24,83 @@ transition :: [ProofState] -> [ProofState]
 transition [] = []
 transition ((ks, gn, pf, [], Nothing, i):tai) = (ks, gn, pf, [], Nothing, i) : transition tai
 transition ((ks, gn, pf, res, Just m, i):tai) = (ks, gn, pf, res, Just m, i) : transition tai
-transition ((ks, gn, pf, (pos, goal, gamma, a@(Lambda x Nothing t)):res, Nothing, i):tai) =
+transition ((ks, gn, pf, curState@((pos, goal, gamma, Const k):res), Nothing, i):tai) =
+  case lookup k gamma of
+    Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
+      (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : transition tai
+    Just f ->
+      if f `alphaEq` goal then
+        let name = Const k
+            pf' = replace pf pos name
+        in  transition $ (ks, gn, pf', res, Nothing, i):tai
+      else 
+        let m' = Just $
+                 text "can't match" <+> disp f $$ text "against"
+                 <+> disp (goal) $$
+                 (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                 (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+        in (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : transition tai
+
+
+transition ((ks, gn, pf, curState@((pos, goal, gamma, Var k):res), Nothing, i):tai) =  
+  case lookup k gamma of
+    Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
+      (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : transition tai
+    Just f ->
+      if f `alphaEq` goal then
+        let name = Var k
+            pf' = replace pf pos name
+        in  transition $ (ks, gn, pf', res, Nothing, i):tai
+      else 
+        let (vars, head, body) = separate f
+            i' = i + length vars
+            fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
+            renaming = zip vars (map Var fresh)
+            body'' = map (applyE renaming) body
+            head'' = applyE renaming head
+            ss = runHMatch ks head'' goal
+        in if not (null body) then
+             let m' = Just $
+                      text "unhandle situation when matching" <+> disp (head'') $$ text "against"
+                      <+> disp (goal) $$
+                      (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                          (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+             in (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : transition tai
+           else 
+             case ss of
+                    [] ->
+                      let m' = Just $
+                            text "can't match" <+> disp (head'') $$ text "against"
+                            <+> disp (goal) $$
+                            (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
+                            (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+                      in (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : transition tai
+                    _ ->
+                      if not (null vars) then
+                            let newState = [(ks, gn, pf', res, Nothing, i') |
+                                            sub <- ss,
+                                            let np = ([ s | r <- fresh, let s = case lookup r sub of
+                                                                                  Nothing -> (Var r)
+                                                                                  Just t -> t]),
+                                            let contm = foldl' (\ z x -> TApp z x) (Var k) np,
+                                            let pf' = replace pf pos contm] in
+                                 transition $ newState++tai
+                      else -- ersm
+                      let newStates = [ (ks, gn, pf', res', Nothing, i) | sub <- ss,
+                                        let evars = free head'',
+                                        let refresher = [(x, t) | x <- evars,
+                                                         (y, t) <- sub, x == y],
+                                        let pf1 = normEvidence $ applyE refresher pf,
+                                        let res' = map (\ (a, gl, gm, e') ->
+                                                           (a, normalize $ applyE refresher gl, (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm), e')) res,
+                                        let head' = normalize $ applyE sub head'',
+                                        let name = Var k,
+                                        let pf' = replace pf1 pos name,
+                                        scopeCheck refresher pf ] in
+                            transition $ newStates ++ tai
+
+
+transition ((ks, gn, pf, (pos, goal@(Forall _ _), gamma, a):res, Nothing, i):tai) =
   let (ns, b) = (map fst $ viewLVars a, viewLBody a)
       (vars, head, body) = separate goal
       lb = length body
@@ -89,71 +165,18 @@ transition ((ks, gn, pf, curState@((pos, goal, gamma, App p1 p2):res), Nothing, 
                          (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
                          (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
                 in (ks, gn, pf, (pos, goal, gamma, App p1 p2):res, m', i) : transition tai
-     
 
-transition ((ks, gn, pf, curState@((pos, goal, gamma, Const k):res), Nothing, i):tai) =
-  case lookup k gamma of
-    Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
-      (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : transition tai
-    Just f ->
-      if f `alphaEq` goal then
-        let name = Const k
-            pf' = replace pf pos name
-        in  transition $ (ks, gn, pf', res, Nothing, i):tai
-      else 
-        let m' = Just $
-                 text "can't match" <+> disp f $$ text "against"
-                 <+> disp (goal) $$
-                 (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
-                 (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-        in (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : transition tai
-
-transition ((ks, gn, pf, curState@((pos, goal, gamma, Var k):res), Nothing, i):tai) =  
-  case lookup k gamma of
-    Nothing -> let m' = Just $ text "can't find" <+> text k <+> text "in the environment" in
-      (ks, gn, pf, (pos, goal, gamma, Const k):res, m', i) : transition tai
-    Just f ->
-      if f `alphaEq` goal then
-        let name = Const k
-            pf' = replace pf pos name
-        in  transition $ (ks, gn, pf', res, Nothing, i):tai
-      else 
-        let (vars, head, body) = separate f
-            i' = i + length vars
-            fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
-            renaming = zip vars (map Var fresh)
-            body'' = map (applyE renaming) body
-            head'' = applyE renaming head
-            ss = runHMatch ks head'' goal
-        in if not (null body) then
-             let m' = Just $
-                      text "unhandle situation when matching" <+> disp (head'') $$ text "against"
-                      <+> disp (goal) $$
-                      (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
-                          (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-             in (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : transition tai
-           else 
-             case ss of
-               [] ->
-                 let m' = Just $
-                          text "can't match" <+> disp (head'') $$ text "against"
-                          <+> disp (goal) $$
-                          (nest 2 (text "when applying" <+>text k <+> text ":" <+> disp f)) $$
-                          (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-                 in (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : transition tai
-               _ -> 
-                 let newStates = [ (ks, gn, pf', res', Nothing, i) | sub <- ss,
-                                      let evars = free head'',
-                                      let refresher = [(x, t) | x <- evars,
-                                                       (y, t) <- sub, x == y],
-                                      let pf1 = normEvidence $ applyE refresher pf,
-                                      let res' = map (\ (a, gl, gm, e') ->
-                                                         (a, normalize $ applyE refresher gl, (map (\ (x, y) -> (x, normalize $ applyE refresher y)) gm), e')) res,
-                                      let head' = normalize $ applyE sub head'',
-                                      let name = Var k,
-                                      let pf' = replace pf1 pos name,
-                                      scopeCheck refresher pf ] in
-                            transition $ newStates ++ tai
+transition (l@(ks, gn, pf, (pos, goal, gamma, Lambda x Nothing p2):res, m, i):tai) = 
+  let
+    (vars, head, body) = separate goal in
+    if null body then
+      let m' = Just $
+            text "lack of assumption in goal " <+> disp (goal) $$
+            (nest 2 (text "when intros is applied on the expression" <+> (disp $ Lambda x Nothing p2))) $$
+            (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+      in (ks, gn, pf, (pos, goal, gamma, Lambda x Nothing p2):res, m', i) : transition tai
+    else error $ "unhandle situation in transition function\n" ++ show l
+transition (m:_) = error $ "unhandle situation in transition function\n" ++ show m
                
 
 
