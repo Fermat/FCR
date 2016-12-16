@@ -4,7 +4,7 @@ h : forall p x . p (F (F (G x)))
 h = K (K h)
 
 
-e : forall x . F (F (G x))
+e : F (F (G x))
 e = h
 
 step e 3

@@ -27,8 +27,10 @@ eval env n e =
                                                in Right f''
                                              else eval env (n-1) e2
                      a -> eval env n g
-                       -- Left $ text "unknown error from eval1" <+> text (show a)
-    g -> eval env n g -- Left $ text "unknown error from eval2"
+                       --Left $ text "unknown error from eval" <+> text (show a) -- 
+                       -- 
+    g@(Lambda x _ _) -> Left $ text "Error: can only unfold applicative evidence" $$ nest 2 (text "current evidence" $$ nest 2 (disp g))
+    g -> eval env n g
 
 -- K P Ins1 .. (K2 ... ())       
 -- unfold' env t = let t1 = unfold env t
