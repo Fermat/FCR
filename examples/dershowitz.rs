@@ -5,4 +5,6 @@ h = K (K h)
 
 
 e : forall x . F (F (G x))
-e = h 
+e = h
+
+step e 3
