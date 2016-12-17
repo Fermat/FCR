@@ -11,4 +11,4 @@ g a1 a2 = a2 (a1 (g (\ v . a1 v) (\ v . a2 (a1 v))))
 e : D Z Z
 e = g (\ v . A v) (\ v . B v)
 
-step e 100
+-- step e 100
