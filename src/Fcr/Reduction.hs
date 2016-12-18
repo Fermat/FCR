@@ -69,7 +69,7 @@ transition ((ks, gn, pf, (pos, goal, gamma, Var k):res, Nothing, i):tai) | isAto
                       in (ks, gn, pf, (pos, goal, gamma, Var k):res, m', i) : transition tai
                     _ -> 
                       if (null vars && null body) then -- ersm
-                        let newStates = [ (ks, gn, pf', res', Nothing, i) | sub <- ss,
+                        let newStates = [ rn | sub <- ss,
                                         let evars = free head'',
                                         let refresher = [(x, t) | x <- evars,
                                                          (y, t) <- sub, x == y],
@@ -79,7 +79,15 @@ transition ((ks, gn, pf, (pos, goal, gamma, Var k):res, Nothing, i):tai) | isAto
                                         let head' = normalize $ applyE sub head'',
                                         let name = Var k,
                                         let pf' = replace pf1 pos name,
-                                        scopeCheck refresher pf ] in
+                                        let fl = scopeCheck refresher pf,
+                                        let rn = if fl then (ks, gn, pf', res', Nothing, i)
+                                                  else
+                                                    let mess = text "scope error when matching"
+                                                               <+> disp (head'') $$
+                                                                    text "against"<+> disp (goal)
+                                                                     $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp refresher <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
+                                                    in (ks, gn, pf, res, Just mess, i)
+                              ] in
                             transition $ newStates ++ tai
                         else
                           if irRegular f then
