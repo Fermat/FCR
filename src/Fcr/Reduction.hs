@@ -85,7 +85,7 @@ transition ((ks, gn, pf, (pos, goal, gamma, Var k):res, Nothing, i):tai) | isAto
                                                     let mess = text "scope error when matching"
                                                                <+> disp (head'') $$
                                                                     text "against"<+> disp (goal)
-                                                                     $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp refresher <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
+                                                                     $$ (nest 2 (text "when applying" <+> text k <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp refresher <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
                                                     in (ks, gn, pf, res, Just mess, i)
                               ] in
                             transition $ newStates ++ tai
