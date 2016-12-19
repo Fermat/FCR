@@ -329,7 +329,7 @@ constrProof ini =
                                    Just m' -> m' 
                            ) finals
               in Left $ sep (map (\ (d, i) -> text "Wrong situation" <+> int i $$ nest 2 d)
-                             $ zip rs [1..])
+                             $ take 5 (zip rs [1..]))
 
 env2 = [("H", KArrow Star (KArrow Star Star)), ("J", KArrow Star Star), ("G", KArrow Star Star), ("S", KArrow Star Star)]
 exp1 = (Lambda "a1" Nothing

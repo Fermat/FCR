@@ -8,4 +8,4 @@ f a1 a2 = a2 (f (\ c . a1 c) (\ c . (a2 (a1 c))))
 h : F Z (S Z) (S Z)
 h = f (\ c . K c) (\ c . K c)
 
-step h 20
+step h 7
