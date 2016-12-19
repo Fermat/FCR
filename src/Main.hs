@@ -40,26 +40,26 @@ dispatch :: [String] -> InputT (StateT Env IO) ()
 dispatch [":env"] = do env <- lift get
                        outputStrLn $ show (text "the current environment" $$ disp env)
 
-dispatch [":outer",n,exp] =
+dispatch (":outer":n:exp) =
   let num = read n :: Int in
-    case parseExp exp of
-      Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ exp)))
+    case parseExp (unwords exp) of
+      Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ unwords exp)))
       Right e -> do env <- lift get
                     let res = getTrace (rules env) e num
                     outputStrLn $ "the execution trace is:\n " ++ show (disp res)
 
-dispatch [":inner", n, exp] =
+dispatch (":inner":n:exp) =
   let num = read n :: Int in
-    case parseExp exp of
-      Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ exp)))
+    case parseExp (unwords exp) of
+      Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ unwords exp)))
       Right e -> do env <- lift get
                     let res = getTrace' (rules env) e num
                     outputStrLn $ "the execution trace is:\n " ++ show (disp res)
 
-dispatch [":full", n, exp] =
+dispatch (":full":n:exp) =
   let num = read n :: Int in
-    case parseExp exp of
-      Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ exp)))
+    case parseExp (unwords exp) of
+      Left err -> outputStrLn (show (disp err $$ text ("fail to parse expression "++ unwords exp)))
       Right e -> do env <- lift get
                     let redTree = reduce (rules env) ([], "_", e) num
                         pTree = dispTree redTree
