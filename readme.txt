@@ -6,7 +6,7 @@ cabal install
 
 * Usage
 --------
-In the terminal, type: ''fcr'', this will load the fcr environment. 
+In the terminal, type: fcr, this will load the fcr environment. 
 
 * Some common commands
 ------------------------
@@ -17,7 +17,7 @@ The fcr environment support the following commands.
 e.g. :l examples/inner2.rs
 This will check and load a given file (please consult the files in examples/ 
 for the format and grammar). 
-The checkings in this case are: guardness check, type check and proof check.
+The checkings in this case are: type checking and proof checking.
 
 The following commands assume a file containing rewrite rules is loaded without errors,
 we will use examples/inner2.rs as running example.
