@@ -71,6 +71,7 @@ transition ((ks, gn, pf, (pos, goal, gamma, Var k):res, Nothing, i):tai) | isAto
                       if (null vars && null body) then -- ersm
                         let newStates = [ rn | sub <- ss,
                                         let evars = free head'',
+                                        let inv = null (evars `intersect` free goal),
                                         let refresher = [(x, t) | x <- evars,
                                                          (y, t) <- sub, x == y],
                                         let pf1 = normEvidence $ applyE refresher pf,
@@ -80,11 +81,16 @@ transition ((ks, gn, pf, (pos, goal, gamma, Var k):res, Nothing, i):tai) | isAto
                                         let name = Var k,
                                         let pf' = replace pf1 pos name,
                                         let fl = scopeCheck refresher pf,
-                                        let rn = if fl then (ks, gn, pf', res', Nothing, i)
-                                                  else
-                                                    let mess = text "scope error when matching"
+                                        let rn = if inv then 
+                                                     if fl then (ks, gn, pf', res', Nothing, i)
+                                                     else
+                                                       let mess = text "scope error when matching"
                                                                <+> disp (head'') $$
                                                                     text "against"<+> disp (goal)
+                                                                     $$ (nest 2 (text "when applying" <+> text k <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp refresher <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
+                                                    in (ks, gn, pf, res, Just mess, i)
+                                                 else
+                                                    let mess = text "existential variables at the goal"  $$ disp (goal)
                                                                      $$ (nest 2 (text "when applying" <+> text k <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp refresher <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
                                                     in (ks, gn, pf, res, Just mess, i)
                               ] in
