@@ -16,8 +16,8 @@ import qualified Data.Set as S
 type PfEnv = [(Name, Exp)]
 
 -- (global name for the proof, Mixed proof and goals,
--- [(position, current goal, Environment)],
--- Error message, counter for generating new variable during the resolution)
+--    [(position, current goal, Environment)],
+--      Error message, counter for generating new variable during the resolution)
 type ProofState = (Name, Exp, [(Pos, Exp, PfEnv)], Maybe Doc, Int)
 
 intros :: ProofState -> [Name] -> ProofState
