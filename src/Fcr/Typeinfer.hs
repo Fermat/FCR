@@ -18,10 +18,10 @@ type PfEnv = [(Name, Exp)]
 -- (global name for the proof, Mixed proof and goals,
 --    [(position, current goal, current program, Environment, Scope list)],
 --      Error message, counter for generating new variable during the resolution)
-type ResState = (Name, Exp, [(Pos, Exp, Exp, PfEnv, Name)], Maybe Doc, Int)
+type ResState = (Name, Exp, [(Pos, Exp, Exp, PfEnv, [Name])], Maybe Doc, Int)
 
 transit :: KSubst -> ResState -> [ResState]
-transit ks (gn, pf, (pos, goal@(Imply _ _), exp@(Lambda x Nothing t), gamma, lvars):phi, m, i) =
+transit ks (gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lvars):phi, m, i) =
   let (bs, h) = getPre goal
       (vars, b) = (map fst $ viewLVars exp, viewLBody exp) in
     if length bs == length vars then
@@ -32,7 +32,7 @@ transit ks (gn, pf, (pos, goal@(Imply _ _), exp@(Lambda x Nothing t), gamma, lva
       in [(gn, pf', (pos', h, t, gamma++newEnv, lvars):phi, Nothing, i)]
     else  let m' = Just $
                    text "arity mismatch when performing lambda abstraction" $$
-                   (nest 2 (text "current goal: " <+>text goal)) $$ nest 2
+                   (nest 2 (text "current goal: " <+> disp goal)) $$ nest 2
                    (text "current program:"<+> disp exp) $$
                    (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
           in [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
@@ -47,7 +47,7 @@ transit ks (gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, m, i) =
       newAbs = foldr (\ a b -> Lambda a Nothing b) imp' absNames
       pf' = replace pf pos newAbs
       pos' = pos ++ take lv stream2
-  in [(gn, pf', (pos',imp', gamma, lvars++ absNames):phi, Nothing, i+lv)]
+  in [(gn, pf', (pos',imp', exp, gamma, lvars++ absNames):phi, Nothing, i+lv)]
 
 transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, m, i) =
   case flatten exp of
@@ -94,7 +94,7 @@ transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, m, i) =
                                                           (x, normalize $ applyE goodSub y))
                                                    gamma
                                           (high, low) = arrange $ zip (zip ps body') xs
-                                          (high', low') = (map (\((p, g),e ) -> (p, g, e, gamma', lvars')) high, (\((p, g),e ) -> (p, g, e, gamma', lvars')) low)
+                                          (high', low') = (map (\(p, g,e ) -> (p, g, e, gamma', lvars')) high, map (\(p, g, e ) -> (p, g, e, gamma', lvars')) low)
                                           (flag, phi') = applyPhi goodSub phi in
                                         if flag then
                                           return (gn, pf'', high'++phi'++low', Nothing, i')
@@ -103,8 +103,14 @@ transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, m, i) =
                    else undefined
 
 
-arrange :: [(Pos, Exp, Exp)] -> ([(Pos, Exp, Exp)], [(Pos, Exp, Exp)])
+arrange :: [((Pos, Exp), Exp)] -> ([(Pos, Exp, Exp)], [(Pos, Exp, Exp)])
 arrange = undefined
+
+applyPhi :: [(Name, Exp)] -> [(Pos, Exp, Exp, PfEnv, [Name])] -> (t, t1)
+applyPhi = undefined
+        
+scopeCheck :: [Name] -> [(Name, Exp)] -> Bool
+scopeCheck = undefined
 
 separate f = let (vars, imp) = getVars f
                  (bs, h) = getPre imp
