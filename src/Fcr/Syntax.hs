@@ -112,7 +112,7 @@ expand' a@(App p1 p2) =
       let res = map expand' xs
       in reApp ((Var v): res)
 -}
--- free vars of exp, now can also get eigenvariables
+-- free vars of exp
 free = S.toList . freeVar 
 -- freeVar :: Exp -> [Name]
 freeVar (Var x) =  S.insert x S.empty

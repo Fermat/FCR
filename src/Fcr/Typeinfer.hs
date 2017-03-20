@@ -39,6 +39,50 @@ transit (ks, gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lv
           in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
 
       
+transit (ks, gn, pf, (pos, goal@(Forall x y), Const v, gamma, lvars):phi, Nothing, i) =
+  case lookup v gamma of
+    Just f -> 
+      if f `alphaEq` goal then
+        let name = if (isUpper $ Data.List.head v)
+                   then Const v else Var v
+            pf' = replace pf pos name in
+          [(ks, gn, pf', phi, Nothing, i)]
+      else 
+        let (vars, imp) = getVars goal
+            lv = length vars
+            absNames = zipWith (\ x y -> x ++ show y ++ "'") vars [i..]
+            sub = zip vars (map Const absNames)
+            imp' = applyE sub imp
+            newAbs = foldr (\ a b -> Lambda a Nothing b) imp' absNames
+            pf' = replace pf pos newAbs
+            pos' = pos ++ take lv stream2
+        in [(ks, gn, pf', (pos',imp', Const v, gamma, lvars++ absNames):phi, Nothing, i+lv)]
+    Nothing -> let m' = Just $ text "can't find" <+> text v
+                        <+> text "in the environment" in
+                 [(ks, gn, pf, (pos, goal, Const v, gamma, lvars):phi, m', i)]
+
+transit (ks, gn, pf, (pos, goal@(Forall x y), Var v, gamma, lvars):phi, Nothing, i) =
+  case lookup v gamma of
+    Just f -> 
+      if f `alphaEq` goal then
+        let name = if (isUpper $ Data.List.head v)
+                   then Var v else Var v
+            pf' = replace pf pos name in
+          [(ks, gn, pf', phi, Nothing, i)]
+      else 
+        let (vars, imp) = getVars goal
+            lv = length vars
+            absNames = zipWith (\ x y -> x ++ show y ++ "'") vars [i..]
+            sub = zip vars (map Var absNames)
+            imp' = applyE sub imp
+            newAbs = foldr (\ a b -> Lambda a Nothing b) imp' absNames
+            pf' = replace pf pos newAbs
+            pos' = pos ++ take lv stream2
+        in [(ks, gn, pf', (pos',imp', Var v, gamma, lvars++ absNames):phi, Nothing, i+lv)]
+    Nothing -> let m' = Just $ text "can't find" <+> text v
+                        <+> text "in the environment" in
+                 [(ks, gn, pf, (pos, goal, Var v, gamma, lvars):phi, m', i)]
+
 transit (ks, gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, Nothing, i) =
   let (vars, imp) = getVars goal
       lv = length vars
@@ -72,15 +116,16 @@ transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
                       in if lengthCheck then
                            case ss of
                              [] ->
-                               let m' = Just $ text "can't match" <+> text (show head'') $$
-                                        text "against" <+> text (show goal) $$
+                               let m' = Just $ text "can't match" <+> disp head'' $$
+                                        text "against" <+> disp goal $$
                                         (nest 2 (text "when applying" <+>text v <+> text ":"
                                                  <+> disp f)) $$
                                         (nest 2 $ text "current mixed proof term" $$
                                          nest 2 (disp pf))
                                in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
                              _ -> do sub <- ss
-                                     if scopeCheck (lvars++fresh) sub
+                                     let subFCheck = [(x, y)|(x, y) <- sub, not $ x `elem` fresh]
+                                     if scopeCheck lvars subFCheck
                                        then let dom = free head''
                                                 body' = map normalize $ (map (applyE sub) body'')
                                                 head' = normalize $ applyE sub head''
@@ -89,15 +134,15 @@ transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
                                                         let s = case lookup r sub of
                                                                   Nothing -> (Var r)
                                                                   Just t -> t]) 
-                                                -- lvars' = (lvars \\ (map fst goodSub)) ++
-                                                --          [ x | x <- fresh, not (x `elem` dom)]
-                                                lvars' = (lvars ++ fresh)\\ (map fst goodSub)
+                                                lvars' = (lvars \\ (map fst goodSub)) ++
+                                                         [ x | x <- fresh, not (x `elem` dom)]
+                                                -- lvars' = (lvars ++ fresh)\\ (map fst goodSub)
                                                 name = if isUpper $ Data.List.head v
                                                        then Const v else Var v
                                                 contm = foldl' (\ z x -> App z x)
                                                         (foldl' (\ z x -> TApp z x) name np)
                                                         body'
-                                                pf' = normEvidence $ applyE goodSub pf
+                                                pf' = normEvidence $ applyE subFCheck pf
                                                 pf'' = replace pf' pos contm
                                                 zeros = makeZeros $ length body'
                                                 ps = map (\ x -> pos++x++[1]) zeros
@@ -107,39 +152,62 @@ transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
                                                          gamma
                                                 (high, low) = arrange $ zip (zip ps body') xs
                                                 (high', low') = (map (\((p, g),e ) -> (p, g, e, gamma', lvars')) high, map (\((p, g), e ) -> (p, g, e, gamma', lvars')) low)
-                                                phi' = applyPhi goodSub phi in
+                                                phi' = applyPhi subFCheck phi in
                                               case phi' of
                                                 Just p -> return
                                                           (ks, gn, pf'', high'++p++low', Nothing, i')
                                                 Nothing ->
-                                                  let mess = text "scope error when matching"
+                                                  let mess = text "environmental scope error when matching"
                                                                <+> disp (head'') $$
                                                                     text "against"<+> disp (goal)
-                                                                     $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp goodSub <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
+                                                                     $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp goodSub <+> text "]")) $$ (nest 2 $ text "The current local vars:" $$ nest 2 (hsep $ map text lvars')) $$ (nest 2 $ text "The current mixed proof term" $$ nest 2 (disp pf))
                                                     in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Just mess, i)]
                                        else
-                                       let mess = text "environmental scope error when matching"
+                                       let mess = text "scope error when matching"
                                                   <+> disp (head'') $$
                                                   text "against"<+> disp (goal)
                                                   $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp sub <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
                                        in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Just mess, i)]
+                         else
+                           if f `alphaEq` goal then
+                                     let name = if (isUpper $ Data.List.head v)
+                                                then Const v else Var v
+                                         pf' = replace pf pos name in
+                                       [(ks, gn, pf', phi, Nothing, i)]
+                           else 
+                             let m' = Just $
+                                      text "arity mismatch when performing application" $$
+                                      (nest 2 (text "current goal: " <+> disp goal)) $$ nest 2
+                                      (text "current program:"<+> disp exp) $$
+                                      (nest 2 (text "when using formula:"<+> disp f)) $$
+                                      (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+                             in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+
+-- transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
+--   case exp of
+--     Var v -> handle v
+--     Const v -> handle v
+--   where handle v = case lookup v gamma of
+--                          Nothing -> let m' = Just $ text "can't find" <+> text v
+--                                           <+> text "in the environment" in
+--                                       [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+--                          Just f -> if f `alphaEq` goal then
+--                                      let name = if (isUpper $ head v) then Const v else Var v
+--                                          pf' = replace pf pos name in
+--                                        [(ks, gn, pf', phi, Nothing, i)]
+--                                    else
+                                     
+--                                      let m' = Just $ text "can't match" <+> disp f $$
+--                                               text "against" <+> disp goal $$
+--                                               (nest 2 (text "when applying" <+>text v <+> text ":"
+--                                                         <+> disp f)) $$
+--                                               (nest 2 $ text "current mixed proof term" $$
+--                                                nest 2 (disp pf))
+--                                      in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
 
 
-                                       -- let m' = Just $
-                                       --               text "scope error when matching" <+>
-                                       --               disp (head'') $$ text "against"
-                                       --               <+> disp (goal) $$
-                                       --               (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$ (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf)) in
-                                       -- [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
-                            
-                         else let m' = Just $
-                                    text "arity mismatch when performing application" $$
-                                    (nest 2 (text "current goal: " <+> disp goal)) $$ nest 2
-                                    (text "current program:"<+> disp exp) $$
-                                    (nest 2 (text "when using formula:"<+> disp f)) $$
-                                    (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-                              in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
 
+  
 transit s = [s]
 
 ersm :: [ResState] -> Either Doc Exp
@@ -163,7 +231,7 @@ ersm init = let s = concat $ map transit init
 
         
 arrange :: [((Pos, Exp), Exp)] -> ([((Pos, Exp), Exp)], [((Pos, Exp), Exp)])
-arrange ls = partition (\((p,f),e) -> (not $ null (free f))) ls
+arrange ls = partition (\((p,f),e) -> (null (free f))) ls
                  
 
 applyPhi :: [(Name, Exp)] -> [(Pos, Exp, Exp, PfEnv, [Name])] ->

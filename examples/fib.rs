@@ -9,6 +9,6 @@ g a b = a (g (\ v . a (b v)) (\ v . a v))
 
 
 h : A x 
-h = g (\ v . Ka v) Kb
+h = g (\ v . Ka v) Kb 
 
 step h 20
