@@ -15,14 +15,14 @@ import qualified Data.Set as S
 -- [(Var|Const : Types)]
 type PfEnv = [(Name, Exp)]
 
--- (global name for the proof, Mixed proof and goals,
+-- (Kind info, global name for the proof, Mixed proof and goals,
 --    [(position, current goal, current program, Environment, Scope list)],
 --      Error message, counter for generating new variable during the resolution)
-type ResState = (Name, Exp, [(Pos, Exp, Exp, PfEnv, [Name])], Maybe Doc, Int)
+type ResState = (KSubst, Name, Exp, [(Pos, Exp, Exp, PfEnv, [Name])], Maybe Doc, Int)
 
-transit :: KSubst -> ResState -> [ResState]
+transit :: ResState -> [ResState]
 
-transit ks (gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lvars):phi, Nothing, i) =
+transit (ks, gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lvars):phi, Nothing, i) =
   let (bs, h) = getPre goal
       (vars, b) = (map fst $ viewLVars exp, viewLBody exp) in
     if length bs == length vars then
@@ -30,16 +30,16 @@ transit ks (gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lva
           newLam = foldr (\ (a, e) b -> Lambda a (Just e) b) h newEnv
           pf' = replace pf pos newLam
           pos' = pos ++ take (length bs) stream2
-      in [(gn, pf', (pos', h, t, gamma++newEnv, lvars):phi, Nothing, i)]
+      in [(ks, gn, pf', (pos', h, t, gamma++newEnv, lvars):phi, Nothing, i)]
     else  let m' = Just $
                    text "arity mismatch when performing lambda abstraction" $$
                    (nest 2 (text "current goal: " <+> disp goal)) $$ nest 2
                    (text "current program:"<+> disp exp) $$
                    (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-          in [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+          in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
 
       
-transit ks (gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, Nothing, i) =
+transit (ks, gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, Nothing, i) =
   let (vars, imp) = getVars goal
       lv = length vars
       absNames = zipWith (\ x y -> x ++ show y ++ "'") vars [i..]
@@ -48,9 +48,9 @@ transit ks (gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, Nothing, i)
       newAbs = foldr (\ a b -> Lambda a Nothing b) imp' absNames
       pf' = replace pf pos newAbs
       pos' = pos ++ take lv stream2
-  in [(gn, pf', (pos',imp', exp, gamma, lvars++ absNames):phi, Nothing, i+lv)]
+  in [(ks, gn, pf', (pos',imp', exp, gamma, lvars++ absNames):phi, Nothing, i+lv)]
 
-transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i) =
+transit (ks, gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i) =
   case flatten exp of
     (Var v) : xs -> handle v xs
     (Const v) : xs -> handle v xs
@@ -60,7 +60,7 @@ transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i) 
           case lookup v gamma of
             Nothing -> let m' = Just $ text "can't find" <+> text v
                                 <+> text "in the environment" in
-                         [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                         [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
             Just f -> let (vars, head, body) = separate f
                           i' = i + length vars
                           fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
@@ -78,7 +78,7 @@ transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i) 
                                               <+> disp f)) $$
                                      (nest 2 $ text "current mixed proof term" $$
                                       nest 2 (disp pf))
-                               in [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                               in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
                              _ -> do sub <- ss
                                      if scopeCheck lvars sub
                                        then let dom = free head''
@@ -107,20 +107,20 @@ transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i) 
                                                 phi' = applyPhi goodSub phi in
                                               case phi' of
                                                 Just p -> return
-                                                          (gn, pf'', high'++p++low', Nothing, i')
+                                                          (ks, gn, pf'', high'++p++low', Nothing, i')
                                                 Nothing ->
                                                   let m' = Just $
                                                            text "scope error when matching" <+>
                                                            disp (head'') $$ text "against"
                                                            <+> disp (goal) $$
                                                            (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$ (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf)) in
-                                                    [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                                                    [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
                                        else let m' = Just $
                                                      text "scope error when matching" <+>
                                                      disp (head'') $$ text "against"
                                                      <+> disp (goal) $$
                                                      (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$ (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf)) in
-                                       [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                                       [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
                             
                          else let m' = Just $
                                     text "arity mismatch when performing application" $$
@@ -128,25 +128,25 @@ transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i) 
                                     (text "current program:"<+> disp exp) $$
                                     (nest 2 (text "when using formula:"<+> disp f)) $$
                                     (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-                              in [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                              in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
 
-transit ks s = [s]
+transit s = [s]
 
-ersm :: [ResState] -> KSubst -> Either Doc Exp
-ersm init ks = let s = concat $ map (transit ks) init
-                   (pending, fails) = partition failure s
-                   flag = length fails == length s
-               in if flag then
-                    let rs = map (\(_,_,_, Just m, _) -> m) fails in
-                      Left $ sep (map (\ (d, i) -> text "Wrong situation" <+> int i $$ nest 2 d)
-                                   $ zip rs [1..])
-                  else case [p | p <- pending, success p ] of
-                         [] -> ersm s ks
-                         (_, pf, _, _, _):_ -> Right pf
+ersm :: [ResState] -> Either Doc Exp
+ersm init = let s = concat $ map transit init
+                (pending, fails) = partition failure s
+                flag = length fails == length s
+            in if flag then
+                 let rs = map (\(_, _,_,_, Just m, _) -> m) fails in
+                   Left $ sep (map (\ (d, i) -> text "Wrong situation" <+> int i $$ nest 2 d)
+                                $ zip rs [1..])
+               else case [p | p <- pending, success p ] of
+                      [] -> ersm s 
+                      (_, _, pf, _, _, _):_ -> Right pf
                              
-  where failure (_,_, _, Just _,_) = True
+  where failure (_, _,_, _, Just _,_) = True
         failure _ = False
-        success (gn,pf,[], Nothing, i) = True
+        success (_, gn,pf,[], Nothing, i) = True
         success _ = False
 
 
