@@ -51,66 +51,87 @@ transit ks (gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, m, i) =
 
 transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, m, i) =
   case flatten exp of
-    (Var v) : xs -> case lookup v gamma of
-      Nothing -> let m' = Just $ text "can't find" <+> text v <+> text "in the environment" in
-                    [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
-      Just f -> let (vars, head, body) = separate f
-                    i' = i + length vars
-                    fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
-                    renaming = zip vars (map Var fresh)
-                    body'' = map (applyE renaming) body
-                    head'' = applyE renaming head
-                    ss = runHMatch ks head'' goal
-                    lengthCheck = length xs == length body
-                in if lengthCheck then
-                     case ss of
-                       [] ->
-                         let m' = Just $
-                                  text "can't match" <+> disp (head'') $$ text "against"
-                                  <+> disp (goal) $$
-                                  (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$
-                                  (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
-                         in [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
-                       _ -> do sub <- ss
-                               if scopeCheck lvars sub
-                                 then let dom = free head''
-                                          body' = map normalize $ (map (applyE sub) body'')
-                                          head' = normalize $ applyE sub head''
-                                          goodSub = [ (x, y) | (x, y) <- sub, x `elem` dom ]
-                                          np = ([ s | r <- fresh,
-                                                  let s = case lookup r sub of
-                                                            Nothing -> (Var r)
-                                                            Just t -> t]) 
-                                          lvars' = (lvars \\ (map fst goodSub)) ++
-                                                   [ x | x <- fresh, not (x `elem` dom)]
-                                          contm = foldl' (\ z x -> App z x)
-                                                  (foldl' (\ z x -> TApp z x) (Var v) np)
-                                                  body'
-                                          pf' = normEvidence $ applyE goodSub pf
-                                          pf'' = replace pf' pos contm
-                                          zeros = makeZeros $ length body'
-                                          ps = map (\ x -> pos++x++[1]) zeros
-                                          gamma' = map (\ (x, y) ->
-                                                          (x, normalize $ applyE goodSub y))
-                                                   gamma
-                                          (high, low) = arrange $ zip (zip ps body') xs
-                                          (high', low') = (map (\(p, g,e ) -> (p, g, e, gamma', lvars')) high, map (\(p, g, e ) -> (p, g, e, gamma', lvars')) low)
-                                          (flag, phi') = applyPhi goodSub phi in
-                                        if flag then
-                                          return (gn, pf'', high'++phi'++low', Nothing, i')
-                                        else undefined
-                                 else undefined
-                   else undefined
+    (Var v) : xs -> handle v xs
+    (Const v) : xs -> handle v xs
 
 
-arrange :: [((Pos, Exp), Exp)] -> ([(Pos, Exp, Exp)], [(Pos, Exp, Exp)])
-arrange = undefined
+  where handle v xs = 
+          case lookup v gamma of
+            Nothing -> let m' = Just $ text "can't find" <+> text v
+                                <+> text "in the environment" in
+                         [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+            Just f -> let (vars, head, body) = separate f
+                          i' = i + length vars
+                          fresh = map (\ (v, j) -> v ++ show j ++ "'") $ zip vars [i..]
+                          renaming = zip vars (map Var fresh)
+                          body'' = map (applyE renaming) body
+                          head'' = applyE renaming head
+                          ss = runHMatch ks head'' goal
+                          lengthCheck = length xs == length body
+                      in if lengthCheck then
+                           case ss of
+                             [] ->
+                               let m' = Just $ text "can't match" <+> disp (head'') $$
+                                     text "against" <+> disp (goal) $$
+                                     (nest 2 (text "when applying" <+>text v <+> text ":"
+                                              <+> disp f)) $$
+                                     (nest 2 $ text "current mixed proof term" $$
+                                      nest 2 (disp pf))
+                               in [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                             _ -> do sub <- ss
+                                     if scopeCheck lvars sub
+                                       then let dom = free head''
+                                                body' = map normalize $ (map (applyE sub) body'')
+                                                head' = normalize $ applyE sub head''
+                                                goodSub = [(x, y) | (x, y) <- sub, x `elem` dom ]
+                                                np = ([ s | r <- fresh,
+                                                        let s = case lookup r sub of
+                                                                  Nothing -> (Var r)
+                                                                  Just t -> t]) 
+                                                lvars' = (lvars \\ (map fst goodSub)) ++
+                                                         [ x | x <- fresh, not (x `elem` dom)]
+                                                contm = foldl' (\ z x -> App z x)
+                                                        (foldl' (\ z x -> TApp z x) (Var v) np)
+                                                        body'
+                                                pf' = normEvidence $ applyE goodSub pf
+                                                pf'' = replace pf' pos contm
+                                                zeros = makeZeros $ length body'
+                                                ps = map (\ x -> pos++x++[1]) zeros
+                                                gamma' = map
+                                                         (\(x, y) ->
+                                                             (x, normalize $ applyE goodSub y))
+                                                         gamma
+                                                (high, low) = arrange $ zip (zip ps body') xs
+                                                (high', low') = (map (\((p, g),e ) -> (p, g, e, gamma', lvars')) high, map (\((p, g), e ) -> (p, g, e, gamma', lvars')) low)
+                                                phi' = applyPhi goodSub phi in
+                                              case phi' of
+                                                Just p -> return
+                                                          (gn, pf'', high'++p++low', Nothing, i')
+                                                Nothing -> undefined
+                                       else undefined
+                         else undefined
 
-applyPhi :: [(Name, Exp)] -> [(Pos, Exp, Exp, PfEnv, [Name])] -> (t, t1)
-applyPhi = undefined
+
+arrange :: [((Pos, Exp), Exp)] -> ([((Pos, Exp), Exp)], [((Pos, Exp), Exp)])
+arrange ls = partition (\((p,f),e) -> (not $ null (free f))) ls
+                 
+
+applyPhi :: [(Name, Exp)] -> [(Pos, Exp, Exp, PfEnv, [Name])] ->
+            Maybe [(Pos, Exp, Exp, PfEnv, [Name])]
+applyPhi sub ls = let f = and [scopeCheck lvars sub | (p, g, e, env, lvars) <- ls]
+                      ls' = map (\(p, g, e, env, lvars) ->
+                                    (p, normalize $ applyE sub g, e,
+                                     map (\ (x, t) -> (x, normalize $ applyE sub t)) env,
+                                     lvars \\ map fst sub)) ls
+                  in if f then Just ls'
+                       else Nothing
         
 scopeCheck :: [Name] -> [(Name, Exp)] -> Bool
-scopeCheck = undefined
+scopeCheck lvars sub = let (sub1, sub2) = partition (\(x, t) -> x `elem` lvars) sub
+                           r1 = and [ null (rvars `intersect` b) | (x, t) <- sub1,
+                                      let (a, b) = break (== x) lvars, let rvars = free t]
+                           r2 = and [null r | (x, t) <- sub2, let r = free t `intersect` lvars]
+                       in r1 && r2
 
 separate f = let (vars, imp) = getVars f
                  (bs, h) = getPre imp
