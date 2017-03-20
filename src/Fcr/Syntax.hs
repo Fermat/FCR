@@ -116,8 +116,8 @@ expand' a@(App p1 p2) =
 free = S.toList . freeVar 
 -- freeVar :: Exp -> [Name]
 freeVar (Var x) =  S.insert x S.empty
--- freeVar (Const x) = S.empty
-freeVar (Const x) = if isUpper (head x) then S.empty else S.insert x S.empty
+freeVar (Const x) = S.empty
+-- freeVar (Const x) = if isLower (head x) then S.insert x S.empty else S.empty
 freeVar (Arrow f1 f2) = (freeVar f1) `S.union` (freeVar f2)
 freeVar (App f1 f2) = (freeVar f1) `S.union` (freeVar f2)
 freeVar (TApp f1 f2) = (freeVar f1) `S.union` (freeVar f2)
@@ -129,6 +129,23 @@ freeVar (Lambda x Nothing f) =
   S.delete x $ freeVar f   
 freeVar (Abs x f) = S.delete x (freeVar f)
 freeVar (Imply b h) = freeVar b `S.union` freeVar h
+
+
+free' = S.toList . freeVar'
+-- freeVar :: Exp -> [Name]
+freeVar' (Var x) =  S.insert x S.empty
+freeVar' (Const x) = if isLower (head x) then S.insert x S.empty else S.empty
+freeVar' (Arrow f1 f2) = (freeVar' f1) `S.union` (freeVar' f2)
+freeVar' (App f1 f2) = (freeVar' f1) `S.union` (freeVar' f2)
+freeVar' (TApp f1 f2) = (freeVar' f1) `S.union` (freeVar' f2)
+freeVar' (PApp f1 f2) = (freeVar' f1) `S.union` (freeVar' f2)
+freeVar' (Forall x f) = S.delete x (freeVar' f)
+freeVar' (Lambda x (Just f1) f) =
+  S.delete x $ freeVar' f `S.union` freeVar' f1
+freeVar' (Lambda x Nothing f) =
+  S.delete x $ freeVar' f   
+freeVar' (Abs x f) = S.delete x (freeVar' f)
+freeVar' (Imply b h) = freeVar' b `S.union` freeVar' h
 
 freeKVar :: Kind -> S.Set Name
 freeKVar Star = S.empty

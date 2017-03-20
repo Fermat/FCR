@@ -5,7 +5,7 @@ import Fcr.Monad
 import Fcr.Rewrite hiding (merge')
 import Fcr.PrettyPrinting
 import Fcr.Typecheck
-
+import Debug.Trace
 import Control.Monad.State
 import Text.PrettyPrint
 import Data.List
@@ -30,7 +30,7 @@ transit (ks, gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lv
           newLam = foldr (\ (a, e) b -> Lambda a (Just e) b) h newEnv
           pf' = replace pf pos newLam
           pos' = pos ++ take (length bs) stream2
-      in [(ks, gn, pf', (pos', h, t, gamma++newEnv, lvars):phi, Nothing, i)]
+      in [(ks, gn, pf', (pos', h, b, gamma++newEnv, lvars):phi, Nothing, i)]
     else  let m' = Just $
                    text "arity mismatch when performing lambda abstraction" $$
                    (nest 2 (text "current goal: " <+> disp goal)) $$ nest 2
@@ -50,11 +50,11 @@ transit (ks, gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, Nothing, i
       pos' = pos ++ take lv stream2
   in [(ks, gn, pf', (pos',imp', exp, gamma, lvars++ absNames):phi, Nothing, i+lv)]
 
-transit (ks, gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i) =
+transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
   case flatten exp of
     (Var v) : xs -> handle v xs
     (Const v) : xs -> handle v xs
-
+    a -> error $ "hey " ++ show (disp exp)
 
   where handle v xs = 
           case lookup v gamma of
@@ -72,15 +72,15 @@ transit (ks, gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i)
                       in if lengthCheck then
                            case ss of
                              [] ->
-                               let m' = Just $ text "can't match" <+> disp (head'') $$
-                                     text "against" <+> disp (goal) $$
-                                     (nest 2 (text "when applying" <+>text v <+> text ":"
-                                              <+> disp f)) $$
-                                     (nest 2 $ text "current mixed proof term" $$
-                                      nest 2 (disp pf))
+                               let m' = Just $ text "can't match" <+> text (show head'') $$
+                                        text "against" <+> text (show goal) $$
+                                        (nest 2 (text "when applying" <+>text v <+> text ":"
+                                                 <+> disp f)) $$
+                                        (nest 2 $ text "current mixed proof term" $$
+                                         nest 2 (disp pf))
                                in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
                              _ -> do sub <- ss
-                                     if scopeCheck lvars sub
+                                     if scopeCheck (lvars++fresh) sub
                                        then let dom = free head''
                                                 body' = map normalize $ (map (applyE sub) body'')
                                                 head' = normalize $ applyE sub head''
@@ -89,10 +89,13 @@ transit (ks, gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i)
                                                         let s = case lookup r sub of
                                                                   Nothing -> (Var r)
                                                                   Just t -> t]) 
-                                                lvars' = (lvars \\ (map fst goodSub)) ++
-                                                         [ x | x <- fresh, not (x `elem` dom)]
+                                                -- lvars' = (lvars \\ (map fst goodSub)) ++
+                                                --          [ x | x <- fresh, not (x `elem` dom)]
+                                                lvars' = (lvars ++ fresh)\\ (map fst goodSub)
+                                                name = if isUpper $ Data.List.head v
+                                                       then Const v else Var v
                                                 contm = foldl' (\ z x -> App z x)
-                                                        (foldl' (\ z x -> TApp z x) (Var v) np)
+                                                        (foldl' (\ z x -> TApp z x) name np)
                                                         body'
                                                 pf' = normEvidence $ applyE goodSub pf
                                                 pf'' = replace pf' pos contm
@@ -114,12 +117,20 @@ transit (ks, gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i)
                                                                     text "against"<+> disp (goal)
                                                                      $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp goodSub <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
                                                     in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Just mess, i)]
-                                       else let m' = Just $
-                                                     text "scope error when matching" <+>
-                                                     disp (head'') $$ text "against"
-                                                     <+> disp (goal) $$
-                                                     (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$ (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf)) in
-                                       [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                                       else
+                                       let mess = text "environmental scope error when matching"
+                                                  <+> disp (head'') $$
+                                                  text "against"<+> disp (goal)
+                                                  $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp sub <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
+                                       in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Just mess, i)]
+
+
+                                       -- let m' = Just $
+                                       --               text "scope error when matching" <+>
+                                       --               disp (head'') $$ text "against"
+                                       --               <+> disp (goal) $$
+                                       --               (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$ (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf)) in
+                                       -- [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
                             
                          else let m' = Just $
                                     text "arity mismatch when performing application" $$
@@ -132,8 +143,9 @@ transit (ks, gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i)
 transit s = [s]
 
 ersm :: [ResState] -> Either Doc Exp
+-- ersm n | trace ("ersm " ++ show n) False = undefined
 ersm init = let s = concat $ map transit init
-                (pending, fails) = partition failure s
+                (fails, pending) = partition failure s
                 flag = length fails == length s
             in if flag then
                  let rs = map (\(_, _,_,_, Just m, _) -> m) fails in
@@ -167,8 +179,8 @@ applyPhi sub ls = let f = and [scopeCheck lvars sub | (p, g, e, env, lvars) <- l
 scopeCheck :: [Name] -> [(Name, Exp)] -> Bool
 scopeCheck lvars sub = let (sub1, sub2) = partition (\(x, t) -> x `elem` lvars) sub
                            r1 = and [ null (rvars `intersect` b) | (x, t) <- sub1,
-                                      let (a, b) = break (== x) lvars, let rvars = free t]
-                           r2 = and [null r | (x, t) <- sub2, let r = free t `intersect` lvars]
+                                      let (a, b) = break (== x) lvars, let rvars = free' t]
+                           r2 = and [null r | (x, t) <- sub2, let r = free' t `intersect` lvars]
                        in r1 && r2
 
 separate f = let (vars, imp) = getVars f
