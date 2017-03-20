@@ -155,7 +155,7 @@ transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
                                                 phi' = applyPhi subFCheck phi in
                                               case phi' of
                                                 Just p -> return
-                                                          (ks, gn, pf'', high'++p++low', Nothing, i')
+                                                          (ks, gn, pf'', high'++low'++p, Nothing, i')
                                                 Nothing ->
                                                   let mess = text "environmental scope error when matching"
                                                                <+> disp (head'') $$
@@ -231,7 +231,10 @@ ersm init = let s = concat $ map transit init
 
         
 arrange :: [((Pos, Exp), Exp)] -> ([((Pos, Exp), Exp)], [((Pos, Exp), Exp)])
-arrange ls = partition (\((p,f),e) -> (null (free f))) ls
+arrange ls =  partition helper ls
+  where helper ((p,f),e) = let (vars, h, _) = separate f
+                               fr = free f
+                           in null (fr `intersect` (free h))
                  
 
 applyPhi :: [(Name, Exp)] -> [(Pos, Exp, Exp, PfEnv, [Name])] ->
