@@ -21,7 +21,8 @@ type PfEnv = [(Name, Exp)]
 type ResState = (Name, Exp, [(Pos, Exp, Exp, PfEnv, [Name])], Maybe Doc, Int)
 
 transit :: KSubst -> ResState -> [ResState]
-transit ks (gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lvars):phi, m, i) =
+
+transit ks (gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lvars):phi, Nothing, i) =
   let (bs, h) = getPre goal
       (vars, b) = (map fst $ viewLVars exp, viewLBody exp) in
     if length bs == length vars then
@@ -38,7 +39,7 @@ transit ks (gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lva
           in [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
 
       
-transit ks (gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, m, i) =
+transit ks (gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, Nothing, i) =
   let (vars, imp) = getVars goal
       lv = length vars
       absNames = zipWith (\ x y -> x ++ show y ++ "'") vars [i..]
@@ -49,7 +50,7 @@ transit ks (gn, pf, (pos, goal@(Forall x y), exp, gamma, lvars):phi, m, i) =
       pos' = pos ++ take lv stream2
   in [(gn, pf', (pos',imp', exp, gamma, lvars++ absNames):phi, Nothing, i+lv)]
 
-transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, m, i) =
+transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i) =
   case flatten exp of
     (Var v) : xs -> handle v xs
     (Const v) : xs -> handle v xs
@@ -107,11 +108,49 @@ transit ks (gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, m, i) =
                                               case phi' of
                                                 Just p -> return
                                                           (gn, pf'', high'++p++low', Nothing, i')
-                                                Nothing -> undefined
-                                       else undefined
-                         else undefined
+                                                Nothing ->
+                                                  let m' = Just $
+                                                           text "scope error when matching" <+>
+                                                           disp (head'') $$ text "against"
+                                                           <+> disp (goal) $$
+                                                           (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$ (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf)) in
+                                                    [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                                       else let m' = Just $
+                                                     text "scope error when matching" <+>
+                                                     disp (head'') $$ text "against"
+                                                     <+> disp (goal) $$
+                                                     (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$ (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf)) in
+                                       [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                            
+                         else let m' = Just $
+                                    text "arity mismatch when performing application" $$
+                                    (nest 2 (text "current goal: " <+> disp goal)) $$ nest 2
+                                    (text "current program:"<+> disp exp) $$
+                                    (nest 2 (text "when using formula:"<+> disp f)) $$
+                                    (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
+                              in [(gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+
+transit ks s = [s]
+
+ersm :: [ResState] -> KSubst -> Either Doc Exp
+ersm init ks = let s = concat $ map (transit ks) init
+                   (pending, fails) = partition failure s
+                   flag = length fails == length s
+               in if flag then
+                    let rs = map (\(_,_,_, Just m, _) -> m) fails in
+                      Left $ sep (map (\ (d, i) -> text "Wrong situation" <+> int i $$ nest 2 d)
+                                   $ zip rs [1..])
+                  else case [p | p <- pending, success p ] of
+                         [] -> ersm s ks
+                         (_, pf, _, _, _):_ -> Right pf
+                             
+  where failure (_,_, _, Just _,_) = True
+        failure _ = False
+        success (gn,pf,[], Nothing, i) = True
+        success _ = False
 
 
+        
 arrange :: [((Pos, Exp), Exp)] -> ([((Pos, Exp), Exp)], [((Pos, Exp), Exp)])
 arrange ls = partition (\((p,f),e) -> (not $ null (free f))) ls
                  
