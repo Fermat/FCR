@@ -1,7 +1,8 @@
 module Main where
 import Fcr.Parser
 import Fcr.Typecheck
-import Fcr.Reduction
+-- import Fcr.Reduction
+import Fcr.Typeinfer
 import Fcr.Eval
 import Fcr.Rewrite hiding (steps)
 import Fcr.Monad
@@ -109,8 +110,8 @@ semi env (n, f, pf) =
         lms = map (\ (n,(_, e)) -> (n, e)) $ lemmas env
         as = axioms env
         pEnv = as ++ lms
-        init = [(ks, n, f, [([], f, (n, f):pEnv, pf)], Nothing,0)] in
-    do e <- constrProof init 
+        init = [(ks, n, f, [([], f, pf, (n, f):pEnv, [])], Nothing,0)] in
+    do e <- ersm init -- constrProof init 
        let e' = rebind e
        runProofCheck n e' f env
        return $ extendLemma n e' f env

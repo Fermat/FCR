@@ -21,7 +21,7 @@ library
                       Fcr.Syntax,
                       Fcr.Rewrite,
                       Fcr.Typecheck,
-                      Fcr.Reduction,
+                      Fcr.Typeinfer,
                       Fcr.Eval,
                       Fcr.Monad,
                       Fcr.PrettyPrinting

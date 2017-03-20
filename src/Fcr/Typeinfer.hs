@@ -109,12 +109,11 @@ transit (ks, gn, pf, (pos, goal, exp@(App p1 p2), gamma, lvars):phi, Nothing, i)
                                                 Just p -> return
                                                           (ks, gn, pf'', high'++p++low', Nothing, i')
                                                 Nothing ->
-                                                  let m' = Just $
-                                                           text "scope error when matching" <+>
-                                                           disp (head'') $$ text "against"
-                                                           <+> disp (goal) $$
-                                                           (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$ (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf)) in
-                                                    [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
+                                                  let mess = text "scope error when matching"
+                                                               <+> disp (head'') $$
+                                                                    text "against"<+> disp (goal)
+                                                                     $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp goodSub <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
+                                                    in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Just mess, i)]
                                        else let m' = Just $
                                                      text "scope error when matching" <+>
                                                      disp (head'') $$ text "against"
