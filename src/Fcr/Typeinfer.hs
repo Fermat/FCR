@@ -32,7 +32,7 @@ transit (ks, gn, pf, (pos, goal@(Imply _ _), exp@(Lambda _ Nothing t), gamma, lv
           pos' = pos ++ take (length bs) stream2
       in [(ks, gn, pf', (pos', h, b, gamma++newEnv, lvars):phi, Nothing, i)]
     else  let m' = Just $
-                   text "arity mismatch when performing lambda abstraction" $$
+                   text "arity mismatch when handling lambda abstraction" $$
                    (nest 2 (text "current goal: " <+> disp goal)) $$ nest 2
                    (text "current program:"<+> disp exp) $$
                    (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
@@ -98,7 +98,7 @@ transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
   case flatten exp of
     (Var v) : xs -> handle v xs
     (Const v) : xs -> handle v xs
-    a -> error $ "hey " ++ show (disp exp)
+    a -> error $ "unhandle situation in transit " ++ show (disp exp)
 
   where handle v xs = 
           case lookup v gamma of
@@ -154,19 +154,20 @@ transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
                                                 (high', low') = (map (\((p, g),e ) -> (p, g, e, gamma', lvars')) high, map (\((p, g), e ) -> (p, g, e, gamma', lvars')) low)
                                                 phi' = applyPhi subFCheck phi in
                                               case phi' of
-                                                Just p -> return
+                                                Right p -> return
                                                           (ks, gn, pf'', high'++low'++p, Nothing, i')
-                                                Nothing ->
-                                                  let mess = text "environmental scope error when matching"
-                                                               <+> disp (head'') $$
-                                                                    text "against"<+> disp (goal)
-                                                                     $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp goodSub <+> text "]")) $$ (nest 2 $ text "The current local vars:" $$ nest 2 (hsep $ map text lvars')) $$ (nest 2 $ text "The current mixed proof term" $$ nest 2 (disp pf))
-                                                    in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Just mess, i)]
+                                                Left m' ->
+                                                  let mess = text "globally, when matching"
+                                                             <+> disp (head'') $$
+                                                             text "against"<+> disp (goal)
+                                                             $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp sub <+> text "]")) $$ (nest 2 $ text "current variables list:" $$ nest 2 (hsep $ map text lvars)) $$ (nest 2 $ text "the current mixed proof term:" $$ nest 2 (disp pf))
+                                                      m1 = m' $$ nest 2 mess in
+                                                    [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Just m1, i)]
                                        else
                                        let mess = text "scope error when matching"
                                                   <+> disp (head'') $$
                                                   text "against"<+> disp (goal)
-                                                  $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp sub <+> text "]")) $$ (nest 2 $ text "to the current mixed proof term" $$ nest 2 (disp pf))
+                                                  $$ (nest 2 (text "when applying" <+> text v <+> text ":" <+> disp f)) $$ (nest 2 (text "when applying substitution" <+> text "[" <+> disp sub <+> text "]")) $$ (nest 2 $ text "current variables list:" $$ nest 2 (hsep $ map text lvars)) $$ (nest 2 $ text "the current mixed proof term:" $$ nest 2 (disp pf))
                                        in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Just mess, i)]
                          else
                            if f `alphaEq` goal then
@@ -176,38 +177,13 @@ transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
                                        [(ks, gn, pf', phi, Nothing, i)]
                            else 
                              let m' = Just $
-                                      text "arity mismatch when performing application" $$
+                                      text "arity mismatch when handling application" $$
                                       (nest 2 (text "current goal: " <+> disp goal)) $$ nest 2
                                       (text "current program:"<+> disp exp) $$
-                                      (nest 2 (text "when using formula:"<+> disp f)) $$
+                                      (nest 2 (text "when applying" <+>text v <+> text ":" <+> disp f)) $$
                                       (nest 2 $ text "current mixed proof term" $$ nest 2 (disp pf))
                              in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
 
--- transit (ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, Nothing, i) =
---   case exp of
---     Var v -> handle v
---     Const v -> handle v
---   where handle v = case lookup v gamma of
---                          Nothing -> let m' = Just $ text "can't find" <+> text v
---                                           <+> text "in the environment" in
---                                       [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
---                          Just f -> if f `alphaEq` goal then
---                                      let name = if (isUpper $ head v) then Const v else Var v
---                                          pf' = replace pf pos name in
---                                        [(ks, gn, pf', phi, Nothing, i)]
---                                    else
-                                     
---                                      let m' = Just $ text "can't match" <+> disp f $$
---                                               text "against" <+> disp goal $$
---                                               (nest 2 (text "when applying" <+>text v <+> text ":"
---                                                         <+> disp f)) $$
---                                               (nest 2 $ text "current mixed proof term" $$
---                                                nest 2 (disp pf))
---                                      in [(ks, gn, pf, (pos, goal, exp, gamma, lvars):phi, m', i)]
-
-
-
-  
 transit s = [s]
 
 ersm :: [ResState] -> Either Doc Exp
@@ -238,14 +214,17 @@ arrange ls =  partition helper ls
                  
 
 applyPhi :: [(Name, Exp)] -> [(Pos, Exp, Exp, PfEnv, [Name])] ->
-            Maybe [(Pos, Exp, Exp, PfEnv, [Name])]
-applyPhi sub ls = let f = and [scopeCheck lvars sub | (p, g, e, env, lvars) <- ls]
+            Either Doc [(Pos, Exp, Exp, PfEnv, [Name])]
+applyPhi sub ls = let f = [(scopeCheck lvars sub, l) | l@(p, g, e, env, lvars) <- ls]
                       ls' = map (\(p, g, e, env, lvars) ->
                                     (p, normalize $ applyE sub g, e,
                                      map (\ (x, t) -> (x, normalize $ applyE sub t)) env,
                                      lvars \\ map fst sub)) ls
-                  in if f then Just ls'
-                       else Nothing
+                  in if and $ map fst f then Right ls'
+                     else let (p, g, e, env, lvars):as = [ l | (b, l) <- f, not b]
+                              m = (nest 2 (text "environmental scope error when applying substitution") $$ nest 2 ( text "[" <+> disp sub <+> text "]")) $$ (nest 2 $ text "local variables list:" $$ nest 2 (hsep $ map text lvars)) $$ (nest 2 $ text "the local goal:" $$ nest 2 (disp g)) $$ (nest 2 $ text "the local expression:" $$ nest 2 (disp e))
+                          in Left m
+                              
         
 scopeCheck :: [Name] -> [(Name, Exp)] -> Bool
 scopeCheck lvars sub = let (sub1, sub2) = partition (\(x, t) -> x `elem` lvars) sub
