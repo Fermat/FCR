@@ -22,10 +22,10 @@ import Data.List
 
 parseModule :: String -> String -> Either P.ParseError Module
 parseModule srcName cnts =
-  runIndent srcName $ runParserT gModule () srcName cnts
+ runIndent $ runParserT gModule () srcName cnts
 
 parseExp :: String -> Either P.ParseError Exp
-parseExp s = runIndent [] $ runParserT (try (parens term) <|> term) () [] s
+parseExp s = runIndent $ runParserT (try (parens term) <|> term) () [] s
 
 -- parseExps :: String -> Either P.ParseError [Exp]
 -- parseExps s = runIndent [] $ runParserT (many1 (try (parens term) <|> term)) () [] s
@@ -152,10 +152,10 @@ term = buildExpressionParser typeOpTable base
 -- base :: Parser Exp
 -- base = try compound <|> try forall <|> parens ftype
 
-binOp :: Assoc -> String -> (a -> a -> a) -> Operator String u (State SourcePos) a
+-- binOp :: Assoc -> String -> (a -> a -> a) -> Operator String u (State SourcePos) a
 binOp assoc op f = Infix (reservedOp op >> return f) assoc
 
-typeOpTable :: [[Operator String u (State SourcePos) Exp]]
+-- typeOpTable :: [[Operator String u (State SourcePos) Exp]]
 typeOpTable = [[binOp AssocRight "=>" Imply, binOp AssocRight "<=" Arrow]]
 
 -- parse type expression
@@ -227,48 +227,48 @@ gottlobStyle = Token.LanguageDef
                     ["\\", "->", "<=", ".","=", "::", ":", "=>"]
                 }
 
-tokenizer :: Token.GenTokenParser String u (State SourcePos)
+-- tokenizer :: Token.GenTokenParser String u (State SourcePos)
 tokenizer = Token.makeTokenParser gottlobStyle
 
-identifier :: ParsecT String u (State SourcePos) String
+-- identifier :: Parser String
 identifier = Token.identifier tokenizer
 
-whiteSpace :: ParsecT String u (State SourcePos) ()
+-- whiteSpace :: ParsecT String u (State SourcePos) ()
 whiteSpace = Token.whiteSpace tokenizer
 
-reserved :: String -> ParsecT String u (State SourcePos) ()
+-- reserved :: String -> ParsecT String u (State SourcePos) ()
 reserved = Token.reserved tokenizer
 
-reservedOp :: String -> ParsecT String u (State SourcePos) ()
+-- reservedOp :: String -> ParsecT String u (State SourcePos) ()
 reservedOp = Token.reservedOp tokenizer
 
-operator :: ParsecT String u (State SourcePos) String
+-- operator :: ParsecT String u (State SourcePos) String
 operator = Token.operator tokenizer
 
-colon :: ParsecT String u (State SourcePos) String
+-- colon :: ParsecT String u (State SourcePos) String
 colon = Token.colon tokenizer
 
-integer :: ParsecT String u (State SourcePos) Integer
+-- integer :: ParsecT String u (State SourcePos) Integer
 integer = Token.integer tokenizer
 
-brackets :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) a
+-- brackets :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) a
 brackets = Token.brackets tokenizer
 
-parens :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) a
+-- parens :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) a
 parens  = Token.parens tokenizer
 
-braces :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) a
+-- braces :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) a
 braces = Token.braces tokenizer
 
-dot :: ParsecT String u (State SourcePos) String
+-- dot :: ParsecT String u (State SourcePos) String
 dot = Token.dot tokenizer
 
-commaSep1 :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) [a]
-commaSep1 = Token.commaSep1 tokenizer
+-- -- commaSep1 :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) [a]
+-- commaSep1 = Token.commaSep1 tokenizer
 
-semiSep1 :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) [a]
-semiSep1 = Token.semiSep1 tokenizer
+-- --semiSep1 :: ParsecT String u (State SourcePos) a -> ParsecT String u (State SourcePos) [a]
+-- semiSep1 = Token.semiSep1 tokenizer
 
-comma :: ParsecT String u (State SourcePos) String
+-- comma :: ParsecT String u (State SourcePos) String
 comma = Token.comma tokenizer
 
