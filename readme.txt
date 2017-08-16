@@ -1,12 +1,15 @@
 FCR(Functional Certificate for Rewriting)
+* Requirements
+------------
+This package requires haskell stack in order to build.
 
 * Install
 ---------
-cabal install
+stack build
 
 * Usage
 --------
-In the terminal, type: fcr, this will load the fcr environment. 
+In the terminal, type: stack exec fcr, this will load the fcr environment. 
 
 * Some common commands
 ------------------------
